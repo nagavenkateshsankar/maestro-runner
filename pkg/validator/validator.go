@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/devicelab-dev/maestro-runner/pkg/config"
 	"github.com/devicelab-dev/maestro-runner/pkg/flow"
 )
 
@@ -23,8 +24,8 @@ func (e *ValidationError) Error() string {
 
 // Result contains the validation result.
 type Result struct {
-	// Files is the list of flow file paths in execution order.
-	Files []string
+	// TestCases is the list of top-level test case file paths.
+	TestCases []string
 	// Errors contains all validation errors found.
 	Errors []error
 }
@@ -62,32 +63,128 @@ func (v *Validator) Validate(path string) *Result {
 		return result
 	}
 
-	var files []string
+	var testCases []string
 	if info.IsDir() {
-		files, err = v.collectFlowFiles(path)
+		testCases, err = v.collectTestCases(path)
 		if err != nil {
 			result.Errors = append(result.Errors, &ValidationError{
 				File:    path,
-				Message: fmt.Sprintf("failed to scan directory: %v", err),
+				Message: fmt.Sprintf("failed to collect test cases: %v", err),
 			})
 			return result
 		}
 	} else {
-		files = []string{path}
+		testCases = []string{path}
 	}
 
-	// Validate each file and resolve dependencies
+	// Validate each test case and resolve dependencies
 	validated := make(map[string]bool)
-	for _, file := range files {
-		v.validateFile(file, result, validated, nil)
+	testCasesAdded := make(map[string]bool)
+	for _, file := range testCases {
+		v.validateFile(file, result, validated, testCasesAdded, nil, true)
 	}
 
 	return result
 }
 
-// collectFlowFiles finds all .yaml/.yml files in a directory.
-func (v *Validator) collectFlowFiles(dir string) ([]string, error) {
+// collectTestCases finds test case files based on config.yaml or top-level files.
+func (v *Validator) collectTestCases(dir string) ([]string, error) {
+	// Try to load config.yaml
+	cfg, _ := config.LoadFromDir(dir)
+
+	// Merge config tags with validator tags
+	if len(cfg.ExcludeTags) > 0 {
+		v.excludeTags = append(v.excludeTags, cfg.ExcludeTags...)
+	}
+	if len(cfg.IncludeTags) > 0 {
+		v.includeTags = append(v.includeTags, cfg.IncludeTags...)
+	}
+
+	// Determine flow patterns
+	patterns := cfg.Flows
+	if len(patterns) == 0 {
+		// Default: top-level files only (equivalent to "*")
+		patterns = []string{"*"}
+	}
+
+	// Collect files matching patterns
+	return v.collectByPatterns(dir, patterns)
+}
+
+// collectByPatterns collects flow files matching glob patterns.
+func (v *Validator) collectByPatterns(dir string, patterns []string) ([]string, error) {
 	var files []string
+	seen := make(map[string]bool)
+
+	for _, pattern := range patterns {
+		matches, err := v.matchPattern(dir, pattern)
+		if err != nil {
+			return nil, err
+		}
+		for _, match := range matches {
+			if !seen[match] {
+				seen[match] = true
+				files = append(files, match)
+			}
+		}
+	}
+
+	return files, nil
+}
+
+// matchPattern matches a glob pattern and returns flow files.
+func (v *Validator) matchPattern(dir, pattern string) ([]string, error) {
+	var files []string
+
+	// Handle "**" for recursive matching
+	if pattern == "**" || strings.HasPrefix(pattern, "**/") {
+		return v.collectRecursive(dir, pattern)
+	}
+
+	// Standard glob matching
+	fullPattern := filepath.Join(dir, pattern)
+	matches, err := filepath.Glob(fullPattern)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if pattern explicitly references subdirectories (e.g., "auth/*")
+	patternHasSubdir := strings.Contains(pattern, "/")
+
+	for _, match := range matches {
+		info, err := os.Stat(match)
+		if err != nil {
+			continue
+		}
+
+		if info.IsDir() {
+			// Only recurse into directories if pattern explicitly includes subdirs
+			// e.g., "auth/*" should get files from auth/, but "*" should skip directories
+			if patternHasSubdir {
+				dirFiles, err := v.getTopLevelFlows(match)
+				if err != nil {
+					return nil, err
+				}
+				files = append(files, dirFiles...)
+			}
+			// Skip directories for patterns like "*" (top-level files only)
+		} else if isFlowFile(match) {
+			files = append(files, match)
+		}
+	}
+
+	return files, nil
+}
+
+// collectRecursive collects all flow files recursively.
+func (v *Validator) collectRecursive(dir, pattern string) ([]string, error) {
+	var files []string
+
+	// Get the suffix after **/ if any
+	suffix := ""
+	if strings.HasPrefix(pattern, "**/") {
+		suffix = pattern[3:]
+	}
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -96,18 +193,63 @@ func (v *Validator) collectFlowFiles(dir string) ([]string, error) {
 		if info.IsDir() {
 			return nil
 		}
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".yaml" || ext == ".yml" {
-			files = append(files, path)
+		if !isFlowFile(path) {
+			return nil
 		}
+
+		// If there's a suffix pattern, check if filename matches
+		if suffix != "" {
+			matched, _ := filepath.Match(suffix, filepath.Base(path))
+			if !matched {
+				return nil
+			}
+		}
+
+		files = append(files, path)
 		return nil
 	})
 
 	return files, err
 }
 
+// getTopLevelFlows gets flow files directly in a directory (not recursive).
+func (v *Validator) getTopLevelFlows(dir string) ([]string, error) {
+	var files []string
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		if isFlowFile(path) {
+			files = append(files, path)
+		}
+	}
+
+	return files, nil
+}
+
+// isFlowFile checks if a file is a valid flow file.
+func isFlowFile(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext != ".yaml" && ext != ".yml" {
+		return false
+	}
+	// Exclude config files
+	name := strings.ToLower(filepath.Base(path))
+	if name == "config.yaml" || name == "config.yml" {
+		return false
+	}
+	return true
+}
+
 // validateFile validates a single file and its runFlow dependencies.
-func (v *Validator) validateFile(filePath string, result *Result, validated map[string]bool, chain []string) {
+func (v *Validator) validateFile(filePath string, result *Result, validated map[string]bool, testCasesAdded map[string]bool, chain []string, isTestCase bool) {
 	// Check for circular dependency
 	for _, ancestor := range chain {
 		if ancestor == filePath {
@@ -120,41 +262,49 @@ func (v *Validator) validateFile(filePath string, result *Result, validated map[
 		}
 	}
 
-	// Skip if already validated
-	if validated[filePath] {
-		return
+	// Parse the file if not already validated
+	var f *flow.Flow
+	var err error
+	if !validated[filePath] {
+		f, err = flow.ParseFile(filePath)
+		if err != nil {
+			result.Errors = append(result.Errors, &ValidationError{
+				File:    filePath,
+				Message: fmt.Sprintf("parse error: %v", err),
+			})
+			return
+		}
+		validated[filePath] = true
+
+		// Recursively validate runFlow dependencies (not test cases)
+		newChain := append(chain, filePath)
+		v.validateRunFlowSteps(f.Steps, filePath, result, validated, testCasesAdded, newChain)
+
+		// Also validate lifecycle hooks
+		v.validateRunFlowSteps(f.Config.OnFlowStart, filePath, result, validated, testCasesAdded, newChain)
+		v.validateRunFlowSteps(f.Config.OnFlowComplete, filePath, result, validated, testCasesAdded, newChain)
 	}
 
-	// Parse the file
-	f, err := flow.ParseFile(filePath)
-	if err != nil {
-		result.Errors = append(result.Errors, &ValidationError{
-			File:    filePath,
-			Message: fmt.Sprintf("parse error: %v", err),
-		})
-		return
+	// Add to TestCases if it's a top-level test case and not already added
+	if isTestCase && !testCasesAdded[filePath] {
+		// Need to re-parse for tag check if we already validated this file earlier as a dependency
+		if f == nil {
+			f, err = flow.ParseFile(filePath)
+			if err != nil {
+				// Already reported this error during dependency validation
+				return
+			}
+		}
+		// Check tag filters
+		if flow.ShouldIncludeFlow(f, v.includeTags, v.excludeTags) {
+			result.TestCases = append(result.TestCases, filePath)
+			testCasesAdded[filePath] = true
+		}
 	}
-
-	// Check tag filters (only for top-level files, not runFlow targets)
-	if len(chain) == 0 && !flow.ShouldIncludeFlow(f, v.includeTags, v.excludeTags) {
-		return
-	}
-
-	// Mark as validated and add to result
-	validated[filePath] = true
-	result.Files = append(result.Files, filePath)
-
-	// Recursively validate runFlow dependencies
-	newChain := append(chain, filePath)
-	v.validateRunFlowSteps(f.Steps, filePath, result, validated, newChain)
-
-	// Also validate lifecycle hooks
-	v.validateRunFlowSteps(f.Config.OnFlowStart, filePath, result, validated, newChain)
-	v.validateRunFlowSteps(f.Config.OnFlowComplete, filePath, result, validated, newChain)
 }
 
 // validateRunFlowSteps finds and validates runFlow references in steps.
-func (v *Validator) validateRunFlowSteps(steps []flow.Step, parentFile string, result *Result, validated map[string]bool, chain []string) {
+func (v *Validator) validateRunFlowSteps(steps []flow.Step, parentFile string, result *Result, validated map[string]bool, testCasesAdded map[string]bool, chain []string) {
 	parentDir := filepath.Dir(parentFile)
 
 	for _, step := range steps {
@@ -162,20 +312,21 @@ func (v *Validator) validateRunFlowSteps(steps []flow.Step, parentFile string, r
 		case *flow.RunFlowStep:
 			if s.File != "" {
 				refPath := resolveFilePath(parentDir, s.File)
-				v.validateFile(refPath, result, validated, chain)
+				// Dependencies are validated but NOT added as test cases
+				v.validateFile(refPath, result, validated, testCasesAdded, chain, false)
 			}
 			// Also check inline commands
-			v.validateRunFlowSteps(s.Steps, parentFile, result, validated, chain)
+			v.validateRunFlowSteps(s.Steps, parentFile, result, validated, testCasesAdded, chain)
 
 		case *flow.RepeatStep:
-			v.validateRunFlowSteps(s.Steps, parentFile, result, validated, chain)
+			v.validateRunFlowSteps(s.Steps, parentFile, result, validated, testCasesAdded, chain)
 
 		case *flow.RetryStep:
 			if s.File != "" {
 				refPath := resolveFilePath(parentDir, s.File)
-				v.validateFile(refPath, result, validated, chain)
+				v.validateFile(refPath, result, validated, testCasesAdded, chain, false)
 			}
-			v.validateRunFlowSteps(s.Steps, parentFile, result, validated, chain)
+			v.validateRunFlowSteps(s.Steps, parentFile, result, validated, testCasesAdded, chain)
 		}
 	}
 }
@@ -187,4 +338,3 @@ func resolveFilePath(baseDir, filePath string) string {
 	}
 	return filepath.Join(baseDir, filePath)
 }
-

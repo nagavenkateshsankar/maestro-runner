@@ -1,8 +1,8 @@
 // Package main is the entry point for maestro-runner CLI.
 package main
 
-import "fmt"
+import "github.com/devicelab-dev/maestro-runner/pkg/cli"
 
 func main() {
-	fmt.Println("maestro-runner")
+	cli.Execute()
 }

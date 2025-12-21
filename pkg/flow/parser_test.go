@@ -1379,3 +1379,43 @@ func TestParse_OpenBrowserStep(t *testing.T) {
 		t.Errorf("expected type=openBrowser, got %v", browser.Type())
 	}
 }
+
+func TestParse_InvalidOnFlowStartStep(t *testing.T) {
+	yaml := `
+appId: com.example
+onFlowStart:
+  - invalidStep
+---
+- tapOn: "Button"
+`
+	_, err := Parse([]byte(yaml), "test.yaml")
+	if err == nil {
+		t.Error("expected error for invalid onFlowStart step")
+	}
+}
+
+func TestParse_InvalidOnFlowCompleteStep(t *testing.T) {
+	yaml := `
+appId: com.example
+onFlowComplete:
+  - invalidStep
+---
+- tapOn: "Button"
+`
+	_, err := Parse([]byte(yaml), "test.yaml")
+	if err == nil {
+		t.Error("expected error for invalid onFlowComplete step")
+	}
+}
+
+func TestParse_InvalidConfigYAML(t *testing.T) {
+	yaml := `
+appId: [invalid yaml
+---
+- tapOn: "Button"
+`
+	_, err := Parse([]byte(yaml), "test.yaml")
+	if err == nil {
+		t.Error("expected error for invalid config YAML")
+	}
+}

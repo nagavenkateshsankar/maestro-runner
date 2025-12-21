@@ -6,6 +6,18 @@
 2. **Unit tests** - Write tests only after code is reviewed and approved
 3. **No Claude credits** - Do not add Claude/AI credits in files or commits
 
+## Code Review Checklist (Run after every code change)
+
+```
+1. KISS        - Is the code simple? No over-engineering?
+2. DRY         - No duplicated code/logic across files?
+3. Quality     - Clean, readable, follows Go conventions?
+4. Tests       - Are there tests for the changed code?
+5. Unit Tests  - go test ./...
+6. Build       - go build .
+7. Coverage    - go test ./... -cover (report per module)
+```
+
 ## Project Context
 
 - **Architecture**: 3-part design (YAML → Executor → Report)

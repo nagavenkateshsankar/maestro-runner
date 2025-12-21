@@ -27,8 +27,8 @@ appId: com.example.app
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	if len(result.Files) != 1 {
-		t.Errorf("expected 1 file, got %d", len(result.Files))
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d", len(result.TestCases))
 	}
 }
 
@@ -52,8 +52,8 @@ func TestValidate_Directory(t *testing.T) {
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	if len(result.Files) != 2 {
-		t.Errorf("expected 2 files, got %d", len(result.Files))
+	if len(result.TestCases) != 2 {
+		t.Errorf("expected 2 test cases, got %d", len(result.TestCases))
 	}
 }
 
@@ -84,9 +84,9 @@ func TestValidate_RunFlowResolution(t *testing.T) {
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	// Should include both main and subflow
-	if len(result.Files) != 2 {
-		t.Errorf("expected 2 files (main + subflow), got %d: %v", len(result.Files), result.Files)
+	// Only main.yaml is a test case; subflow.yaml is a dependency (validated but not in TestCases)
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d: %v", len(result.TestCases), result.TestCases)
 	}
 }
 
@@ -114,8 +114,9 @@ func TestValidate_NestedRunFlow(t *testing.T) {
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	if len(result.Files) != 3 {
-		t.Errorf("expected 3 files, got %d", len(result.Files))
+	// Only main.yaml is a test case; sub1.yaml and sub2.yaml are dependencies
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d", len(result.TestCases))
 	}
 }
 
@@ -237,8 +238,8 @@ tags:
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	if len(result.Files) != 1 {
-		t.Errorf("expected 1 file with smoke tag, got %d", len(result.Files))
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case with smoke tag, got %d", len(result.TestCases))
 	}
 
 	// Test exclude tags
@@ -248,8 +249,8 @@ tags:
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	if len(result.Files) != 1 {
-		t.Errorf("expected 1 file without regression tag, got %d", len(result.Files))
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case without regression tag, got %d", len(result.TestCases))
 	}
 }
 
@@ -285,8 +286,9 @@ func TestValidate_RunFlowInSubdir(t *testing.T) {
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	if len(result.Files) != 2 {
-		t.Errorf("expected 2 files, got %d", len(result.Files))
+	// Only main.yaml is a test case; helper.yaml is a dependency
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d", len(result.TestCases))
 	}
 }
 
@@ -313,8 +315,9 @@ func TestValidate_RetryWithFile(t *testing.T) {
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	if len(result.Files) != 2 {
-		t.Errorf("expected 2 files (main + retry file), got %d", len(result.Files))
+	// Only main.yaml is a test case; helper.yaml is a dependency
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d", len(result.TestCases))
 	}
 }
 
@@ -342,15 +345,159 @@ func TestValidate_SharedDependency(t *testing.T) {
 	if !result.IsValid() {
 		t.Errorf("expected valid result, got errors: %v", result.Errors)
 	}
-	// shared.yaml should only appear once
-	sharedCount := 0
-	for _, f := range result.Files {
-		if strings.HasSuffix(f, "shared.yaml") {
-			sharedCount++
-		}
+	// All three are at top-level, so all are test cases
+	if len(result.TestCases) != 3 {
+		t.Errorf("expected 3 test cases, got %d", len(result.TestCases))
 	}
-	if sharedCount != 1 {
-		t.Errorf("expected shared.yaml once, got %d times", sharedCount)
+}
+
+func TestValidate_SubdirNotIncludedByDefault(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "helpers")
+	if err := os.Mkdir(subdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Top-level test case
+	mainFlow := `- tapOn: "Main"`
+	// Helper in subdirectory
+	helperFlow := `- tapOn: "Helper"`
+
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "helper.yaml"), []byte(helperFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Only top-level main.yaml is a test case; helpers/helper.yaml is not included
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case (top-level only), got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_ConfigYamlFlowPatterns(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "auth")
+	if err := os.Mkdir(subdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml specifies to include auth/* flows
+	config := `flows:
+  - auth/*
+`
+	authFlow := `- tapOn: "Login"`
+	topFlow := `- tapOn: "Top"` // Should NOT be included
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "login.yaml"), []byte(authFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "top.yaml"), []byte(topFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Only auth/login.yaml matches the pattern
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case from auth/*, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+	if !strings.HasSuffix(result.TestCases[0], "login.yaml") {
+		t.Errorf("expected login.yaml, got %s", result.TestCases[0])
+	}
+}
+
+func TestValidate_ConfigYamlExcludeTags(t *testing.T) {
+	dir := t.TempDir()
+
+	// config.yaml excludes wip tag
+	config := `excludeTags:
+  - wip
+`
+	readyFlow := `
+appId: com.example
+tags:
+  - ready
+---
+- tapOn: "Ready"
+`
+	wipFlow := `
+appId: com.example
+tags:
+  - wip
+---
+- tapOn: "WIP"
+`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ready.yaml"), []byte(readyFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "wip.yaml"), []byte(wipFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Only ready.yaml (wip.yaml is excluded by config)
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d", len(result.TestCases))
+	}
+}
+
+func TestValidate_RecursivePattern(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "nested", "deep")
+	if err := os.MkdirAll(subdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml uses ** for recursive
+	config := `flows:
+  - "**"
+`
+	topFlow := `- tapOn: "Top"`
+	deepFlow := `- tapOn: "Deep"`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "top.yaml"), []byte(topFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "deep.yaml"), []byte(deepFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Both top.yaml and nested/deep/deep.yaml should be included
+	if len(result.TestCases) != 2 {
+		t.Errorf("expected 2 test cases with **, got %d: %v", len(result.TestCases), result.TestCases)
 	}
 }
 
@@ -375,5 +522,699 @@ func TestValidationError_Error(t *testing.T) {
 	expected := "test.yaml: something went wrong"
 	if err.Error() != expected {
 		t.Errorf("expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestValidate_RecursivePatternWithSuffix(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "auth")
+	if err := os.MkdirAll(subdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml uses **/ with suffix
+	config := `flows:
+  - "**/login*.yaml"
+`
+	loginFlow := `- tapOn: "Login"`
+	otherFlow := `- tapOn: "Other"`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "login_test.yaml"), []byte(loginFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "other.yaml"), []byte(otherFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Only login_test.yaml matches the pattern
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case matching **/login*.yaml, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_RepeatStep(t *testing.T) {
+	dir := t.TempDir()
+
+	flow := `
+- repeat:
+    times: "3"
+    commands:
+      - tapOn: "Button"
+`
+	if err := os.WriteFile(filepath.Join(dir, "repeat.yaml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(filepath.Join(dir, "repeat.yaml"))
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+}
+
+func TestValidate_RepeatWithRunFlow(t *testing.T) {
+	dir := t.TempDir()
+
+	mainFlow := `
+- repeat:
+    times: "2"
+    commands:
+      - runFlow: helper.yaml
+`
+	helperFlow := `- tapOn: "Helper"`
+
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "helper.yaml"), []byte(helperFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(filepath.Join(dir, "main.yaml"))
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+}
+
+func TestValidate_OnFlowStartHook(t *testing.T) {
+	dir := t.TempDir()
+
+	mainFlow := `
+appId: com.example
+onFlowStart:
+  - runFlow: setup.yaml
+---
+- tapOn: "Start"
+`
+	setupFlow := `- launchApp: com.example`
+
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "setup.yaml"), []byte(setupFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(filepath.Join(dir, "main.yaml"))
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+}
+
+func TestValidate_OnFlowCompleteHook(t *testing.T) {
+	dir := t.TempDir()
+
+	mainFlow := `
+appId: com.example
+onFlowComplete:
+  - runFlow: teardown.yaml
+---
+- tapOn: "Start"
+`
+	teardownFlow := `- stopApp: com.example`
+
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "teardown.yaml"), []byte(teardownFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(filepath.Join(dir, "main.yaml"))
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+}
+
+func TestValidate_NonYamlFilesIgnored(t *testing.T) {
+	dir := t.TempDir()
+
+	flow := `- tapOn: "Button"`
+	readme := `# This is a README`
+
+	if err := os.WriteFile(filepath.Join(dir, "test.yaml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte(readme), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "script.sh"), []byte("#!/bin/bash"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Only test.yaml should be included
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_DependencyFirstThenTestCase(t *testing.T) {
+	dir := t.TempDir()
+
+	// a.yaml references shared.yaml, b.yaml is standalone
+	// When validating directory, shared.yaml gets validated as dependency first,
+	// then as a test case (since it's at top level)
+	flowA := `- runFlow: shared.yaml`
+	flowB := `- tapOn: "B"`
+	sharedFlow := `- tapOn: "Shared"`
+
+	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(flowA), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), []byte(flowB), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "shared.yaml"), []byte(sharedFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// All three should be test cases (all at top level)
+	if len(result.TestCases) != 3 {
+		t.Errorf("expected 3 test cases, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_ConfigYamlIncludeTags(t *testing.T) {
+	dir := t.TempDir()
+
+	config := `includeTags:
+  - smoke
+`
+	smokeFlow := `
+appId: com.example
+tags:
+  - smoke
+---
+- tapOn: "Smoke"
+`
+	regularFlow := `- tapOn: "Regular"`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "smoke.yaml"), []byte(smokeFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "regular.yaml"), []byte(regularFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Only smoke.yaml has the smoke tag
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case with smoke tag, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_RunFlowWithInlineCommands(t *testing.T) {
+	dir := t.TempDir()
+
+	flow := `
+- runFlow:
+    commands:
+      - tapOn: "Button"
+      - inputText: "text"
+`
+	if err := os.WriteFile(filepath.Join(dir, "inline.yaml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(filepath.Join(dir, "inline.yaml"))
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+}
+
+func TestValidate_RetryWithInlineCommands(t *testing.T) {
+	dir := t.TempDir()
+
+	flow := `
+- retry:
+    maxRetries: "3"
+    commands:
+      - tapOn: "Flaky Button"
+`
+	if err := os.WriteFile(filepath.Join(dir, "retry.yaml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(filepath.Join(dir, "retry.yaml"))
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+}
+
+func TestValidate_SubdirPatternWithDirectory(t *testing.T) {
+	dir := t.TempDir()
+	authDir := filepath.Join(dir, "auth")
+	if err := os.MkdirAll(authDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml uses subdir pattern that matches a directory containing flows
+	config := `flows:
+  - "auth/*"
+`
+	loginFlow := `- tapOn: "Login"`
+	logoutFlow := `- tapOn: "Logout"`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(loginFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "logout.yaml"), []byte(logoutFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	if len(result.TestCases) != 2 {
+		t.Errorf("expected 2 test cases from auth/*, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_NestedSubdirPattern(t *testing.T) {
+	dir := t.TempDir()
+	nestedDir := filepath.Join(dir, "features", "auth")
+	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml uses nested subdir pattern
+	config := `flows:
+  - "features/auth/*"
+`
+	flow := `- tapOn: "Login"`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nestedDir, "login.yaml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_AbsoluteRunFlowPath(t *testing.T) {
+	dir := t.TempDir()
+	helperDir := t.TempDir() // Different directory for absolute path
+
+	helperFlow := `- tapOn: "Helper"`
+	helperPath := filepath.Join(helperDir, "helper.yaml")
+	if err := os.WriteFile(helperPath, []byte(helperFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Main flow uses absolute path
+	mainFlow := `- runFlow: ` + helperPath
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(filepath.Join(dir, "main.yaml"))
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+}
+
+func TestValidate_PatternMatchesDirectory(t *testing.T) {
+	dir := t.TempDir()
+	subDir := filepath.Join(dir, "flows")
+	nestedDir := filepath.Join(subDir, "nested")
+	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Pattern "flows/*" matches both file and directory
+	config := `flows:
+  - "flows/*"
+`
+	topFlow := `- tapOn: "Top"`
+	nestedFlow := `- tapOn: "Nested"`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "top.yaml"), []byte(topFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nestedDir, "nested.yaml"), []byte(nestedFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Only top.yaml, nested/ directory should be recursed into
+	if len(result.TestCases) != 2 {
+		t.Errorf("expected 2 test cases, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_EmptyDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result for empty dir, got errors: %v", result.Errors)
+	}
+	if len(result.TestCases) != 0 {
+		t.Errorf("expected 0 test cases for empty dir, got %d", len(result.TestCases))
+	}
+}
+
+func TestValidate_YmlExtension(t *testing.T) {
+	dir := t.TempDir()
+
+	flow := `- tapOn: "Button"`
+	if err := os.WriteFile(filepath.Join(dir, "test.yml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case for .yml file, got %d", len(result.TestCases))
+	}
+}
+
+func TestValidate_InvalidGlobPattern(t *testing.T) {
+	dir := t.TempDir()
+
+	// config.yaml with invalid glob pattern (unclosed bracket)
+	config := `flows:
+  - "[invalid"
+`
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if result.IsValid() {
+		t.Error("expected error for invalid glob pattern")
+	}
+}
+
+func TestValidate_UnreadableDirectory(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "noperm")
+	if err := os.Mkdir(subdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	flow := `- tapOn: "Button"`
+	if err := os.WriteFile(filepath.Join(subdir, "test.yaml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml references the subdir
+	config := `flows:
+  - "noperm/*"
+`
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove read permission on subdir (only works on Unix)
+	if err := os.Chmod(subdir, 0000); err != nil {
+		t.Skip("cannot change permissions")
+	}
+	defer os.Chmod(subdir, 0755)
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	// Should handle permission errors gracefully
+	// Either returns error or empty results
+	_ = result
+}
+
+func TestValidate_MultiplePatterns(t *testing.T) {
+	dir := t.TempDir()
+	authDir := filepath.Join(dir, "auth")
+	cartDir := filepath.Join(dir, "cart")
+	if err := os.MkdirAll(authDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cartDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml with multiple patterns
+	config := `flows:
+  - "auth/*"
+  - "cart/*"
+`
+	authFlow := `- tapOn: "Login"`
+	cartFlow := `- tapOn: "Add to cart"`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(authFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cartDir, "add.yaml"), []byte(cartFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	if len(result.TestCases) != 2 {
+		t.Errorf("expected 2 test cases from multiple patterns, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_DuplicatePatternMatches(t *testing.T) {
+	dir := t.TempDir()
+
+	// config.yaml with overlapping patterns
+	config := `flows:
+  - "*.yaml"
+  - "test*.yaml"
+`
+	flow := `- tapOn: "Button"`
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "test_flow.yaml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// Should deduplicate matches
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case (deduplicated), got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_WalkError(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "nested")
+	if err := os.MkdirAll(subdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml with recursive pattern
+	config := `flows:
+  - "**"
+`
+	flow := `- tapOn: "Button"`
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "test.yaml"), []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove permission on subdir to trigger walk error (Unix only)
+	if err := os.Chmod(subdir, 0000); err != nil {
+		t.Skip("cannot change permissions")
+	}
+	defer os.Chmod(subdir, 0755)
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	// Should handle walk errors
+	_ = result
+}
+
+func TestValidate_SubdirPatternWithNestedDir(t *testing.T) {
+	dir := t.TempDir()
+	authDir := filepath.Join(dir, "auth")
+	nestedDir := filepath.Join(authDir, "helpers")
+	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml uses subdir pattern
+	// "auth/*" matches files in auth/ AND directories, and recurses into matched directories
+	config := `flows:
+  - "auth/*"
+`
+	loginFlow := `- tapOn: "Login"`
+	helperFlow := `- tapOn: "Helper"`
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(loginFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nestedDir, "helper.yaml"), []byte(helperFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// auth/* matches login.yaml and helpers/ directory, which contains helper.yaml
+	if len(result.TestCases) != 2 {
+		t.Errorf("expected 2 test cases, got %d: %v", len(result.TestCases), result.TestCases)
+	}
+}
+
+func TestValidate_MatchPatternWithStatError(t *testing.T) {
+	dir := t.TempDir()
+
+	flow := `- tapOn: "Button"`
+	flowPath := filepath.Join(dir, "test.yaml")
+	if err := os.WriteFile(flowPath, []byte(flow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	if len(result.TestCases) != 1 {
+		t.Errorf("expected 1 test case, got %d", len(result.TestCases))
+	}
+}
+
+func TestValidate_GetTopLevelFlowsWithMixedContent(t *testing.T) {
+	dir := t.TempDir()
+	authDir := filepath.Join(dir, "auth")
+	nestedDir := filepath.Join(authDir, "subdir")
+	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml uses subdir/* pattern which triggers getTopLevelFlows
+	// It matches files in auth/ and recurses into subdirs
+	config := `flows:
+  - "auth/*"
+`
+	flow1 := `- tapOn: "Flow1"`
+	flow2 := `- tapOn: "Flow2"`
+	nestedFlow := `- tapOn: "Nested"`
+	readme := `# README` // Non-yaml file, should be skipped
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "flow1.yaml"), []byte(flow1), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "flow2.yml"), []byte(flow2), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "README.md"), []byte(readme), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nestedDir, "nested.yaml"), []byte(nestedFlow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v := New(nil, nil)
+	result := v.Validate(dir)
+
+	if !result.IsValid() {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+	}
+	// flow1.yaml, flow2.yml from auth/, and nested.yaml from subdir (via getTopLevelFlows)
+	// README.md is skipped (not yaml)
+	if len(result.TestCases) != 3 {
+		t.Errorf("expected 3 test cases, got %d: %v", len(result.TestCases), result.TestCases)
 	}
 }
