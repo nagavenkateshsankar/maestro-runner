@@ -1,0 +1,16 @@
+# Binaries
+maestro-runner
+maestro-runner-*
+*.exe
+
+# Test coverage
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
