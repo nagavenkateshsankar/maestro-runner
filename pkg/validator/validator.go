@@ -89,22 +89,23 @@ func (v *Validator) Validate(path string) *Result {
 
 // collectTestCases finds test case files based on config.yaml or top-level files.
 func (v *Validator) collectTestCases(dir string) ([]string, error) {
-	// Try to load config.yaml
+	// Try to load config.yaml (may not exist)
 	cfg, _ := config.LoadFromDir(dir)
 
-	// Merge config tags with validator tags
-	if len(cfg.ExcludeTags) > 0 {
-		v.excludeTags = append(v.excludeTags, cfg.ExcludeTags...)
-	}
-	if len(cfg.IncludeTags) > 0 {
-		v.includeTags = append(v.includeTags, cfg.IncludeTags...)
-	}
-
 	// Determine flow patterns
-	patterns := cfg.Flows
-	if len(patterns) == 0 {
-		// Default: top-level files only (equivalent to "*")
-		patterns = []string{"*"}
+	patterns := []string{"*"} // Default: top-level files only
+
+	if cfg != nil {
+		// Merge config tags with validator tags
+		if len(cfg.ExcludeTags) > 0 {
+			v.excludeTags = append(v.excludeTags, cfg.ExcludeTags...)
+		}
+		if len(cfg.IncludeTags) > 0 {
+			v.includeTags = append(v.includeTags, cfg.IncludeTags...)
+		}
+		if len(cfg.Flows) > 0 {
+			patterns = cfg.Flows
+		}
 	}
 
 	// Collect files matching patterns

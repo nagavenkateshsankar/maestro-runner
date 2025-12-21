@@ -17,7 +17,7 @@ appId: com.example.app
 - tapOn: "Login"
 - inputText: "username"
 `
-	if err := os.WriteFile(file, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -41,7 +41,7 @@ func TestValidate_Directory(t *testing.T) {
 	}
 
 	for name, content := range files {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -71,10 +71,10 @@ func TestValidate_RunFlowResolution(t *testing.T) {
 - tapOn: "SubStep2"
 `
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "subflow.yaml"), []byte(subFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "subflow.yaml"), []byte(subFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -98,13 +98,13 @@ func TestValidate_NestedRunFlow(t *testing.T) {
 	sub1Flow := `- runFlow: sub2.yaml`
 	sub2Flow := `- tapOn: "Deep"`
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "sub1.yaml"), []byte(sub1Flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "sub1.yaml"), []byte(sub1Flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "sub2.yaml"), []byte(sub2Flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "sub2.yaml"), []byte(sub2Flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -127,10 +127,10 @@ func TestValidate_CircularDependency(t *testing.T) {
 	flowA := `- runFlow: b.yaml`
 	flowB := `- runFlow: a.yaml`
 
-	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(flowA), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(flowA), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), []byte(flowB), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), []byte(flowB), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -160,7 +160,7 @@ func TestValidate_SelfReference(t *testing.T) {
 	// Flow references itself
 	flow := `- runFlow: self.yaml`
 
-	if err := os.WriteFile(filepath.Join(dir, "self.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "self.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -177,7 +177,7 @@ func TestValidate_MissingRunFlowFile(t *testing.T) {
 
 	flow := `- runFlow: nonexistent.yaml`
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -194,7 +194,7 @@ func TestValidate_InvalidYAML(t *testing.T) {
 
 	flow := `- tapOn: [invalid yaml`
 
-	if err := os.WriteFile(filepath.Join(dir, "invalid.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "invalid.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -224,10 +224,10 @@ tags:
 - tapOn: "Regression"
 `
 
-	if err := os.WriteFile(filepath.Join(dir, "smoke.yaml"), []byte(smokeFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "smoke.yaml"), []byte(smokeFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "regression.yaml"), []byte(regressionFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "regression.yaml"), []byte(regressionFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -266,17 +266,17 @@ func TestValidate_NonExistentPath(t *testing.T) {
 func TestValidate_RunFlowInSubdir(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "subflows")
-	if err := os.Mkdir(subdir, 0755); err != nil {
+	if err := os.Mkdir(subdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	mainFlow := `- runFlow: subflows/helper.yaml`
 	helperFlow := `- tapOn: "Helper"`
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subdir, "helper.yaml"), []byte(helperFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "helper.yaml"), []byte(helperFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -302,10 +302,10 @@ func TestValidate_RetryWithFile(t *testing.T) {
 `
 	helperFlow := `- tapOn: "Retry helper"`
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "helper.yaml"), []byte(helperFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "helper.yaml"), []byte(helperFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -329,13 +329,13 @@ func TestValidate_SharedDependency(t *testing.T) {
 	flowB := `- runFlow: shared.yaml`
 	sharedFlow := `- tapOn: "Shared"`
 
-	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(flowA), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(flowA), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), []byte(flowB), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), []byte(flowB), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "shared.yaml"), []byte(sharedFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "shared.yaml"), []byte(sharedFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -354,7 +354,7 @@ func TestValidate_SharedDependency(t *testing.T) {
 func TestValidate_SubdirNotIncludedByDefault(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "helpers")
-	if err := os.Mkdir(subdir, 0755); err != nil {
+	if err := os.Mkdir(subdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -363,10 +363,10 @@ func TestValidate_SubdirNotIncludedByDefault(t *testing.T) {
 	// Helper in subdirectory
 	helperFlow := `- tapOn: "Helper"`
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subdir, "helper.yaml"), []byte(helperFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "helper.yaml"), []byte(helperFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -385,7 +385,7 @@ func TestValidate_SubdirNotIncludedByDefault(t *testing.T) {
 func TestValidate_ConfigYamlFlowPatterns(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "auth")
-	if err := os.Mkdir(subdir, 0755); err != nil {
+	if err := os.Mkdir(subdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -396,13 +396,13 @@ func TestValidate_ConfigYamlFlowPatterns(t *testing.T) {
 	authFlow := `- tapOn: "Login"`
 	topFlow := `- tapOn: "Top"` // Should NOT be included
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subdir, "login.yaml"), []byte(authFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "login.yaml"), []byte(authFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "top.yaml"), []byte(topFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "top.yaml"), []byte(topFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -443,13 +443,13 @@ tags:
 - tapOn: "WIP"
 `
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "ready.yaml"), []byte(readyFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "ready.yaml"), []byte(readyFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "wip.yaml"), []byte(wipFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "wip.yaml"), []byte(wipFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -468,7 +468,7 @@ tags:
 func TestValidate_RecursivePattern(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "nested", "deep")
-	if err := os.MkdirAll(subdir, 0755); err != nil {
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -479,13 +479,13 @@ func TestValidate_RecursivePattern(t *testing.T) {
 	topFlow := `- tapOn: "Top"`
 	deepFlow := `- tapOn: "Deep"`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "top.yaml"), []byte(topFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "top.yaml"), []byte(topFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subdir, "deep.yaml"), []byte(deepFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "deep.yaml"), []byte(deepFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -528,7 +528,7 @@ func TestValidationError_Error(t *testing.T) {
 func TestValidate_RecursivePatternWithSuffix(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "auth")
-	if err := os.MkdirAll(subdir, 0755); err != nil {
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -539,13 +539,13 @@ func TestValidate_RecursivePatternWithSuffix(t *testing.T) {
 	loginFlow := `- tapOn: "Login"`
 	otherFlow := `- tapOn: "Other"`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subdir, "login_test.yaml"), []byte(loginFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "login_test.yaml"), []byte(loginFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subdir, "other.yaml"), []byte(otherFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "other.yaml"), []byte(otherFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -570,7 +570,7 @@ func TestValidate_RepeatStep(t *testing.T) {
     commands:
       - tapOn: "Button"
 `
-	if err := os.WriteFile(filepath.Join(dir, "repeat.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "repeat.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -593,10 +593,10 @@ func TestValidate_RepeatWithRunFlow(t *testing.T) {
 `
 	helperFlow := `- tapOn: "Helper"`
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "helper.yaml"), []byte(helperFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "helper.yaml"), []byte(helperFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -620,10 +620,10 @@ onFlowStart:
 `
 	setupFlow := `- launchApp: com.example`
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "setup.yaml"), []byte(setupFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "setup.yaml"), []byte(setupFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -647,10 +647,10 @@ onFlowComplete:
 `
 	teardownFlow := `- stopApp: com.example`
 
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "teardown.yaml"), []byte(teardownFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "teardown.yaml"), []byte(teardownFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -668,13 +668,13 @@ func TestValidate_NonYamlFilesIgnored(t *testing.T) {
 	flow := `- tapOn: "Button"`
 	readme := `# This is a README`
 
-	if err := os.WriteFile(filepath.Join(dir, "test.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "test.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte(readme), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte(readme), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "script.sh"), []byte("#!/bin/bash"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "script.sh"), []byte("#!/bin/bash"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -700,13 +700,13 @@ func TestValidate_DependencyFirstThenTestCase(t *testing.T) {
 	flowB := `- tapOn: "B"`
 	sharedFlow := `- tapOn: "Shared"`
 
-	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(flowA), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(flowA), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), []byte(flowB), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), []byte(flowB), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "shared.yaml"), []byte(sharedFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "shared.yaml"), []byte(sharedFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -737,13 +737,13 @@ tags:
 `
 	regularFlow := `- tapOn: "Regular"`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "smoke.yaml"), []byte(smokeFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "smoke.yaml"), []byte(smokeFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "regular.yaml"), []byte(regularFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "regular.yaml"), []byte(regularFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -768,7 +768,7 @@ func TestValidate_RunFlowWithInlineCommands(t *testing.T) {
       - tapOn: "Button"
       - inputText: "text"
 `
-	if err := os.WriteFile(filepath.Join(dir, "inline.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "inline.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -789,7 +789,7 @@ func TestValidate_RetryWithInlineCommands(t *testing.T) {
     commands:
       - tapOn: "Flaky Button"
 `
-	if err := os.WriteFile(filepath.Join(dir, "retry.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "retry.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -804,7 +804,7 @@ func TestValidate_RetryWithInlineCommands(t *testing.T) {
 func TestValidate_SubdirPatternWithDirectory(t *testing.T) {
 	dir := t.TempDir()
 	authDir := filepath.Join(dir, "auth")
-	if err := os.MkdirAll(authDir, 0755); err != nil {
+	if err := os.MkdirAll(authDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -815,13 +815,13 @@ func TestValidate_SubdirPatternWithDirectory(t *testing.T) {
 	loginFlow := `- tapOn: "Login"`
 	logoutFlow := `- tapOn: "Logout"`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(loginFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(loginFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(authDir, "logout.yaml"), []byte(logoutFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "logout.yaml"), []byte(logoutFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -839,7 +839,7 @@ func TestValidate_SubdirPatternWithDirectory(t *testing.T) {
 func TestValidate_NestedSubdirPattern(t *testing.T) {
 	dir := t.TempDir()
 	nestedDir := filepath.Join(dir, "features", "auth")
-	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -849,10 +849,10 @@ func TestValidate_NestedSubdirPattern(t *testing.T) {
 `
 	flow := `- tapOn: "Login"`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(nestedDir, "login.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(nestedDir, "login.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -873,13 +873,13 @@ func TestValidate_AbsoluteRunFlowPath(t *testing.T) {
 
 	helperFlow := `- tapOn: "Helper"`
 	helperPath := filepath.Join(helperDir, "helper.yaml")
-	if err := os.WriteFile(helperPath, []byte(helperFlow), 0644); err != nil {
+	if err := os.WriteFile(helperPath, []byte(helperFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Main flow uses absolute path
 	mainFlow := `- runFlow: ` + helperPath
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(mainFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -895,7 +895,7 @@ func TestValidate_PatternMatchesDirectory(t *testing.T) {
 	dir := t.TempDir()
 	subDir := filepath.Join(dir, "flows")
 	nestedDir := filepath.Join(subDir, "nested")
-	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -906,13 +906,13 @@ func TestValidate_PatternMatchesDirectory(t *testing.T) {
 	topFlow := `- tapOn: "Top"`
 	nestedFlow := `- tapOn: "Nested"`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subDir, "top.yaml"), []byte(topFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subDir, "top.yaml"), []byte(topFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(nestedDir, "nested.yaml"), []byte(nestedFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(nestedDir, "nested.yaml"), []byte(nestedFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -946,7 +946,7 @@ func TestValidate_YmlExtension(t *testing.T) {
 	dir := t.TempDir()
 
 	flow := `- tapOn: "Button"`
-	if err := os.WriteFile(filepath.Join(dir, "test.yml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "test.yml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -968,7 +968,7 @@ func TestValidate_InvalidGlobPattern(t *testing.T) {
 	config := `flows:
   - "[invalid"
 `
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -983,12 +983,12 @@ func TestValidate_InvalidGlobPattern(t *testing.T) {
 func TestValidate_UnreadableDirectory(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "noperm")
-	if err := os.Mkdir(subdir, 0755); err != nil {
+	if err := os.Mkdir(subdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	flow := `- tapOn: "Button"`
-	if err := os.WriteFile(filepath.Join(subdir, "test.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "test.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -996,15 +996,15 @@ func TestValidate_UnreadableDirectory(t *testing.T) {
 	config := `flows:
   - "noperm/*"
 `
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Remove read permission on subdir (only works on Unix)
-	if err := os.Chmod(subdir, 0000); err != nil {
+	if err := os.Chmod(subdir, 0o000); err != nil {
 		t.Skip("cannot change permissions")
 	}
-	defer os.Chmod(subdir, 0755)
+	defer func() { _ = os.Chmod(subdir, 0o755) }()
 
 	v := New(nil, nil)
 	result := v.Validate(dir)
@@ -1018,10 +1018,10 @@ func TestValidate_MultiplePatterns(t *testing.T) {
 	dir := t.TempDir()
 	authDir := filepath.Join(dir, "auth")
 	cartDir := filepath.Join(dir, "cart")
-	if err := os.MkdirAll(authDir, 0755); err != nil {
+	if err := os.MkdirAll(authDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(cartDir, 0755); err != nil {
+	if err := os.MkdirAll(cartDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1033,13 +1033,13 @@ func TestValidate_MultiplePatterns(t *testing.T) {
 	authFlow := `- tapOn: "Login"`
 	cartFlow := `- tapOn: "Add to cart"`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(authFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(authFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cartDir, "add.yaml"), []byte(cartFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(cartDir, "add.yaml"), []byte(cartFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1063,10 +1063,10 @@ func TestValidate_DuplicatePatternMatches(t *testing.T) {
   - "test*.yaml"
 `
 	flow := `- tapOn: "Button"`
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "test_flow.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "test_flow.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1085,7 +1085,7 @@ func TestValidate_DuplicatePatternMatches(t *testing.T) {
 func TestValidate_WalkError(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "nested")
-	if err := os.MkdirAll(subdir, 0755); err != nil {
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1094,18 +1094,18 @@ func TestValidate_WalkError(t *testing.T) {
   - "**"
 `
 	flow := `- tapOn: "Button"`
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subdir, "test.yaml"), []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "test.yaml"), []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Remove permission on subdir to trigger walk error (Unix only)
-	if err := os.Chmod(subdir, 0000); err != nil {
+	if err := os.Chmod(subdir, 0o000); err != nil {
 		t.Skip("cannot change permissions")
 	}
-	defer os.Chmod(subdir, 0755)
+	defer func() { _ = os.Chmod(subdir, 0o755) }()
 
 	v := New(nil, nil)
 	result := v.Validate(dir)
@@ -1118,7 +1118,7 @@ func TestValidate_SubdirPatternWithNestedDir(t *testing.T) {
 	dir := t.TempDir()
 	authDir := filepath.Join(dir, "auth")
 	nestedDir := filepath.Join(authDir, "helpers")
-	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1130,13 +1130,13 @@ func TestValidate_SubdirPatternWithNestedDir(t *testing.T) {
 	loginFlow := `- tapOn: "Login"`
 	helperFlow := `- tapOn: "Helper"`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(loginFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "login.yaml"), []byte(loginFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(nestedDir, "helper.yaml"), []byte(helperFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(nestedDir, "helper.yaml"), []byte(helperFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1157,7 +1157,7 @@ func TestValidate_MatchPatternWithStatError(t *testing.T) {
 
 	flow := `- tapOn: "Button"`
 	flowPath := filepath.Join(dir, "test.yaml")
-	if err := os.WriteFile(flowPath, []byte(flow), 0644); err != nil {
+	if err := os.WriteFile(flowPath, []byte(flow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1176,7 +1176,7 @@ func TestValidate_GetTopLevelFlowsWithMixedContent(t *testing.T) {
 	dir := t.TempDir()
 	authDir := filepath.Join(dir, "auth")
 	nestedDir := filepath.Join(authDir, "subdir")
-	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1190,19 +1190,19 @@ func TestValidate_GetTopLevelFlowsWithMixedContent(t *testing.T) {
 	nestedFlow := `- tapOn: "Nested"`
 	readme := `# README` // Non-yaml file, should be skipped
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(authDir, "flow1.yaml"), []byte(flow1), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "flow1.yaml"), []byte(flow1), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(authDir, "flow2.yml"), []byte(flow2), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "flow2.yml"), []byte(flow2), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(authDir, "README.md"), []byte(readme), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "README.md"), []byte(readme), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(nestedDir, "nested.yaml"), []byte(nestedFlow), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(nestedDir, "nested.yaml"), []byte(nestedFlow), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

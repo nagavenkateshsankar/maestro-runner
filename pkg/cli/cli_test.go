@@ -292,7 +292,7 @@ func TestExecuteTest(t *testing.T) {
 func TestTestCommand_WithFlowFile(t *testing.T) {
 	dir := t.TempDir()
 	flowFile := dir + "/test.yaml"
-	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0644); err != nil {
+	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -316,7 +316,7 @@ func TestTestCommand_WithFlowFile(t *testing.T) {
 func TestTestCommand_WithAllFlags(t *testing.T) {
 	dir := t.TempDir()
 	flowFile := dir + "/test.yaml"
-	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0644); err != nil {
+	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -356,7 +356,7 @@ func TestTestCommand_WithAllFlags(t *testing.T) {
 func TestTestCommand_FlattenWithOutput(t *testing.T) {
 	dir := t.TempDir()
 	flowFile := dir + "/test.yaml"
-	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0644); err != nil {
+	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -386,7 +386,7 @@ func TestTestCommand_FlattenWithOutput(t *testing.T) {
 func TestTestCommand_FlattenWithoutOutput(t *testing.T) {
 	dir := t.TempDir()
 	flowFile := dir + "/test.yaml"
-	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0644); err != nil {
+	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

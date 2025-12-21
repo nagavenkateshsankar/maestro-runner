@@ -798,4 +798,3 @@ func ShouldIncludeFlow(flow *Flow, includeTags, excludeTags []string) bool {
 
 	return true
 }
-

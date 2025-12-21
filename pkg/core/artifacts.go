@@ -1,3 +1,4 @@
+// Package core provides the execution model types for maestro-runner.
 package core
 
 import (
@@ -110,8 +111,13 @@ type ArtifactCollector interface {
 // NullArtifactCollector is a no-op implementation for testing
 type NullArtifactCollector struct{}
 
+// CaptureScreenshot returns nil (no-op)
 func (n NullArtifactCollector) CaptureScreenshot() ([]byte, error) { return nil, nil }
-func (n NullArtifactCollector) CaptureHierarchy() ([]byte, error)  { return nil, nil }
-func (n NullArtifactCollector) CaptureDeviceLogs(since time.Time) ([]string, error) {
+
+// CaptureHierarchy returns nil (no-op)
+func (n NullArtifactCollector) CaptureHierarchy() ([]byte, error) { return nil, nil }
+
+// CaptureDeviceLogs returns nil (no-op)
+func (n NullArtifactCollector) CaptureDeviceLogs(_ time.Time) ([]string, error) {
 	return nil, nil
 }

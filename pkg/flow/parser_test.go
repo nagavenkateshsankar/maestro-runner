@@ -485,7 +485,7 @@ func TestParseFile(t *testing.T) {
 	path := filepath.Join(dir, "test.yaml")
 
 	content := `- tapOn: "Login"`
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 
@@ -533,7 +533,7 @@ tags:
 
 	for name, content := range files {
 		path := filepath.Join(dir, name)
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatalf("failed to write %s: %v", name, err)
 		}
 	}
@@ -569,15 +569,15 @@ tags:
 func TestParseDirectory_WithSubdirs(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "subflows")
-	if err := os.Mkdir(subdir, 0755); err != nil {
+	if err := os.Mkdir(subdir, 0o755); err != nil {
 		t.Fatalf("failed to create subdir: %v", err)
 	}
 
 	content := `- tapOn: "Button"`
-	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.yaml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subdir, "sub.yaml"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subdir, "sub.yaml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1149,7 +1149,7 @@ func TestParseDirectory_WithInvalidFiles(t *testing.T) {
 	// Create an invalid YAML file
 	content := `- tapOn: [invalid
   yaml`
-	if err := os.WriteFile(filepath.Join(dir, "invalid.yaml"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "invalid.yaml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

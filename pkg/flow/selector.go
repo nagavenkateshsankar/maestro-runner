@@ -32,12 +32,12 @@ type Selector struct {
 	CSS string `yaml:"css"`
 
 	// Relative selectors
-	ChildOf            *Selector   `yaml:"childOf"`
-	Below              *Selector   `yaml:"below"`
-	Above              *Selector   `yaml:"above"`
-	LeftOf             *Selector   `yaml:"leftOf"`
-	RightOf            *Selector   `yaml:"rightOf"`
-	ContainsChild      *Selector   `yaml:"containsChild"`
+	ChildOf             *Selector   `yaml:"childOf"`
+	Below               *Selector   `yaml:"below"`
+	Above               *Selector   `yaml:"above"`
+	LeftOf              *Selector   `yaml:"leftOf"`
+	RightOf             *Selector   `yaml:"rightOf"`
+	ContainsChild       *Selector   `yaml:"containsChild"`
 	ContainsDescendants []*Selector `yaml:"containsDescendants"`
 
 	// Inline step properties (parsed with selector for YAML convenience)

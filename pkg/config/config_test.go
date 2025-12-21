@@ -23,7 +23,7 @@ env:
 platform: ios
 device: iPhone-15
 `
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,7 +64,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	configPath := filepath.Join(dir, "config.yaml")
 
 	content := `flows: [invalid yaml`
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -79,7 +79,7 @@ func TestLoad_EmptyConfig(t *testing.T) {
 	configPath := filepath.Join(dir, "config.yaml")
 
 	content := ``
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -98,7 +98,7 @@ func TestLoadFromDir_ConfigYaml(t *testing.T) {
 	configPath := filepath.Join(dir, "config.yaml")
 
 	content := `platform: android`
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +117,7 @@ func TestLoadFromDir_ConfigYml(t *testing.T) {
 	configPath := filepath.Join(dir, "config.yml")
 
 	content := `platform: ios`
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -155,10 +155,10 @@ func TestLoadFromDir_PrefersYamlOverYml(t *testing.T) {
 	yamlContent := `platform: ios`
 	ymlContent := `platform: android`
 
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(yamlContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "config.yml"), []byte(ymlContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "config.yml"), []byte(ymlContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

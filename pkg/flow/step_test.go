@@ -140,6 +140,10 @@ func TestStepInterface(t *testing.T) {
 		_ = step.Label()
 		_ = step.Describe()
 	}
+
+	if len(steps) == 0 {
+		t.Error("expected at least one step type")
+	}
 }
 
 func TestTapOnStep_Fields(t *testing.T) {

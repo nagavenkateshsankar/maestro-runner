@@ -2,13 +2,19 @@ package core
 
 import (
 	"time"
+
+	"github.com/devicelab-dev/maestro-runner/pkg/flow"
 )
 
 // StepResult captures the complete outcome of executing a single step
 type StepResult struct {
 	// Identity
-	Index   int    `json:"index"`   // 0-based position in flow
-	Command string `json:"command"` // Command type: tapOn, assertVisible, etc.
+	Step    flow.Step `json:"-"`       // Reference to the step definition
+	Index   int       `json:"index"`   // 0-based position in flow
+	Command string    `json:"command"` // Command type: tapOn, assertVisible, etc.
+
+	// Execution context
+	ExecutedBy ExecutedBy `json:"executedBy"` // driver or runner
 
 	// Status
 	Status   StepStatus    `json:"status"`
@@ -18,19 +24,28 @@ type StepResult struct {
 	StartTime time.Time     `json:"startTime"`
 	Duration  time.Duration `json:"duration"`
 
+	// Output
+	Message string       `json:"message,omitempty"` // Human-readable explanation
+	Element *ElementInfo `json:"element,omitempty"` // Element interacted with
+	Data    interface{}  `json:"data,omitempty"`    // Command-specific data (including expected/actual for assertions)
+
 	// Error Details
-	Error    string `json:"error,omitempty"`    // Technical error message
-	Message  string `json:"message,omitempty"`  // Human-readable explanation
-	Expected string `json:"expected,omitempty"` // What was expected (for assertions)
-	Actual   string `json:"actual,omitempty"`   // What was found
+	Error string `json:"error,omitempty"` // Technical error message
 
 	// Retry Tracking
 	Attempt     int      `json:"attempt"`               // Current attempt (1-based)
 	MaxAttempts int      `json:"maxAttempts"`           // Configured max retries + 1
 	RetryErrors []string `json:"retryErrors,omitempty"` // Errors from previous attempts
+	Flaky       bool     `json:"flaky,omitempty"`       // True if passed after retry
 
 	// Debug Artifacts
-	Attachments []Attachment `json:"attachments,omitempty"`
+	Logs        []LogEntry   `json:"logs,omitempty"`        // Logs captured during step
+	Attachments []Attachment `json:"attachments,omitempty"` // Screenshots, hierarchy, etc.
+	Debug       interface{}  `json:"-"`                     // Internal debug info (not serialized)
+
+	// Nested results (for runFlow, repeat, retry)
+	SubFlowResult *FlowResult  `json:"subFlowResult,omitempty"` // For runFlow
+	Iterations    []StepResult `json:"iterations,omitempty"`    // For repeat loops
 }
 
 // FlowResult captures the complete outcome of executing a flow
@@ -39,6 +54,9 @@ type FlowResult struct {
 	Name     string   `json:"name"`
 	FilePath string   `json:"filePath"`
 	Tags     []string `json:"tags,omitempty"`
+
+	// Platform info (captured once per flow)
+	PlatformInfo *PlatformInfo `json:"platformInfo,omitempty"`
 
 	// Status (aggregated from steps)
 	Status StepStatus `json:"status"`
@@ -51,6 +69,7 @@ type FlowResult struct {
 	Steps          []StepResult `json:"steps"`
 	OnFlowStart    []StepResult `json:"onFlowStart,omitempty"`
 	OnFlowComplete []StepResult `json:"onFlowComplete,omitempty"`
+	OnFlowFailure  []StepResult `json:"onFlowFailure,omitempty"` // Runs when flow fails
 
 	// Summary (computed)
 	TotalSteps   int `json:"totalSteps"`
@@ -58,6 +77,7 @@ type FlowResult struct {
 	FailedSteps  int `json:"failedSteps"`
 	SkippedSteps int `json:"skippedSteps"`
 	WarnedSteps  int `json:"warnedSteps"`
+	FlakySteps   int `json:"flakySteps,omitempty"` // Steps that passed after retry
 
 	// Error info (if flow failed)
 	Error   string `json:"error,omitempty"`
@@ -71,6 +91,7 @@ func (f *FlowResult) ComputeSummary() {
 	f.FailedSteps = 0
 	f.SkippedSteps = 0
 	f.WarnedSteps = 0
+	f.FlakySteps = 0
 
 	for _, step := range f.Steps {
 		switch step.Status {
@@ -83,7 +104,30 @@ func (f *FlowResult) ComputeSummary() {
 		case StatusWarned:
 			f.WarnedSteps++
 		}
+		if step.Flaky {
+			f.FlakySteps++
+		}
 	}
+}
+
+// hasFailure checks if any step in the slice has failed or errored
+func hasFailure(steps []StepResult) bool {
+	for _, step := range steps {
+		if step.Status == StatusFailed || step.Status == StatusErrored {
+			return true
+		}
+	}
+	return false
+}
+
+// hasWarning checks if any step in the slice has warned status
+func hasWarning(steps []StepResult) bool {
+	for _, step := range steps {
+		if step.Status == StatusWarned {
+			return true
+		}
+	}
+	return false
 }
 
 // AggregateStatus determines the flow status from step results
@@ -92,33 +136,10 @@ func (f *FlowResult) ComputeSummary() {
 // - All passed (with optional warned) → StatusPassed
 // - onFlowStart failed → StatusFailed (steps skipped)
 func (f *FlowResult) AggregateStatus() StepStatus {
-	// Check onFlowStart first
-	for _, step := range f.OnFlowStart {
-		if step.Status == StatusFailed || step.Status == StatusErrored {
-			return StatusFailed
-		}
+	if hasFailure(f.OnFlowStart) || hasFailure(f.Steps) || hasFailure(f.OnFlowComplete) {
+		return StatusFailed
 	}
-
-	// Check main steps
-	hasWarned := false
-	for _, step := range f.Steps {
-		if step.Status == StatusFailed || step.Status == StatusErrored {
-			return StatusFailed
-		}
-		if step.Status == StatusWarned {
-			hasWarned = true
-		}
-	}
-
-	// Check onFlowComplete
-	for _, step := range f.OnFlowComplete {
-		if step.Status == StatusFailed || step.Status == StatusErrored {
-			return StatusFailed
-		}
-	}
-
-	// All steps executed without hard failure
-	if hasWarned {
+	if hasWarning(f.Steps) {
 		return StatusWarned
 	}
 	return StatusPassed
@@ -129,11 +150,6 @@ type SuiteResult struct {
 	// Identity
 	Name  string `json:"name"`
 	RunID string `json:"runId"` // Unique execution ID (timestamp or UUID)
-
-	// Environment
-	Platform string `json:"platform"` // ios, android
-	Device   string `json:"device"`
-	AppID    string `json:"appId"`
 
 	// Timing
 	StartTime time.Time     `json:"startTime"`
@@ -147,6 +163,7 @@ type SuiteResult struct {
 	PassedFlows  int `json:"passedFlows"`
 	FailedFlows  int `json:"failedFlows"`
 	SkippedFlows int `json:"skippedFlows"`
+	FlakyFlows   int `json:"flakyFlows,omitempty"` // Flows with flaky steps
 }
 
 // ComputeSummary calculates flow counts from the Flows slice
@@ -155,6 +172,7 @@ func (s *SuiteResult) ComputeSummary() {
 	s.PassedFlows = 0
 	s.FailedFlows = 0
 	s.SkippedFlows = 0
+	s.FlakyFlows = 0
 
 	for _, flow := range s.Flows {
 		switch flow.Status {
@@ -164,6 +182,9 @@ func (s *SuiteResult) ComputeSummary() {
 			s.FailedFlows++
 		case StatusSkipped:
 			s.SkippedFlows++
+		}
+		if flow.FlakySteps > 0 {
+			s.FlakyFlows++
 		}
 	}
 }

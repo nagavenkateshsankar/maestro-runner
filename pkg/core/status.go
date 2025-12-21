@@ -3,14 +3,15 @@ package core
 // StepStatus represents the execution status of a step
 type StepStatus int
 
+// StepStatus values
 const (
-	StatusPending   StepStatus = iota // Not yet started
-	StatusRunning                     // Currently executing
-	StatusPassed                      // Completed successfully
-	StatusFailed                      // Assertion failed (expected behavior didn't occur)
-	StatusErrored                     // Unexpected error (infrastructure, timeout, crash)
-	StatusSkipped                     // Condition not met or previous step failed
-	StatusWarned                      // Optional step failed (non-blocking)
+	StatusPending StepStatus = iota // Not yet started
+	StatusRunning                   // Currently executing
+	StatusPassed                    // Completed successfully
+	StatusFailed                    // Assertion failed (expected behavior didn't occur)
+	StatusErrored                   // Unexpected error (infrastructure, timeout, crash)
+	StatusSkipped                   // Condition not met or previous step failed
+	StatusWarned                    // Optional step failed (non-blocking)
 )
 
 // String returns the string representation of StepStatus
@@ -53,6 +54,7 @@ func (s StepStatus) IsSuccess() bool {
 // ErrorCategory classifies the type of error for better debugging and reporting
 type ErrorCategory int
 
+// ErrorCategory values
 const (
 	ErrCategoryNone       ErrorCategory = iota // No error
 	ErrCategoryAssertion                       // Element not found, text mismatch, visibility check failed
