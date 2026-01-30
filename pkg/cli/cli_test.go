@@ -7,6 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/devicelab-dev/maestro-runner/pkg/device"
+	"github.com/devicelab-dev/maestro-runner/pkg/emulator"
+	"github.com/devicelab-dev/maestro-runner/pkg/executor"
+	"github.com/devicelab-dev/maestro-runner/pkg/report"
 	"github.com/urfave/cli/v2"
 )
 
@@ -804,4 +808,750 @@ func TestIsSocketInUse_StaleSocket(t *testing.T) {
 		t.Error("expected stale socket file to be removed")
 		os.Remove(socketPath) // Clean up
 	}
+}
+
+// Tests for bootTimeout helper
+
+func TestBootTimeout_Default(t *testing.T) {
+	cfg := &RunConfig{BootTimeout: 0}
+	timeout := bootTimeout(cfg)
+	if timeout != 180*time.Second {
+		t.Errorf("bootTimeout(0) = %v, want 180s", timeout)
+	}
+}
+
+func TestBootTimeout_Custom(t *testing.T) {
+	cfg := &RunConfig{BootTimeout: 60}
+	timeout := bootTimeout(cfg)
+	if timeout != 60*time.Second {
+		t.Errorf("bootTimeout(60) = %v, want 60s", timeout)
+	}
+}
+
+func TestBootTimeout_Large(t *testing.T) {
+	cfg := &RunConfig{BootTimeout: 300}
+	timeout := bootTimeout(cfg)
+	if timeout != 300*time.Second {
+		t.Errorf("bootTimeout(300) = %v, want 300s", timeout)
+	}
+}
+
+// Tests for getFirstDevice helper
+
+func TestGetFirstDevice_WithDevices(t *testing.T) {
+	cfg := &RunConfig{Devices: []string{"emulator-5554", "emulator-5556"}}
+	result := getFirstDevice(cfg)
+	if result != "emulator-5554" {
+		t.Errorf("getFirstDevice() = %q, want %q", result, "emulator-5554")
+	}
+}
+
+func TestGetFirstDevice_NoDevices(t *testing.T) {
+	cfg := &RunConfig{Devices: nil}
+	result := getFirstDevice(cfg)
+	if result != "" {
+		t.Errorf("getFirstDevice() = %q, want empty string", result)
+	}
+}
+
+func TestGetFirstDevice_EmptySlice(t *testing.T) {
+	cfg := &RunConfig{Devices: []string{}}
+	result := getFirstDevice(cfg)
+	if result != "" {
+		t.Errorf("getFirstDevice() = %q, want empty string", result)
+	}
+}
+
+// Tests for cloneCapabilities
+
+func TestCloneCapabilities_Nil(t *testing.T) {
+	result := cloneCapabilities(nil)
+	if result == nil {
+		t.Error("cloneCapabilities(nil) should return non-nil map")
+	}
+	if len(result) != 0 {
+		t.Errorf("cloneCapabilities(nil) should return empty map, got %v", result)
+	}
+}
+
+func TestCloneCapabilities_Empty(t *testing.T) {
+	caps := make(map[string]interface{})
+	result := cloneCapabilities(caps)
+	if len(result) != 0 {
+		t.Errorf("cloneCapabilities({}) should return empty map, got %v", result)
+	}
+}
+
+func TestCloneCapabilities_WithValues(t *testing.T) {
+	caps := map[string]interface{}{
+		"platformName":          "Android",
+		"appium:automationName": "UiAutomator2",
+	}
+	result := cloneCapabilities(caps)
+
+	if result["platformName"] != "Android" {
+		t.Errorf("expected platformName=Android, got %v", result["platformName"])
+	}
+	if result["appium:automationName"] != "UiAutomator2" {
+		t.Errorf("expected automationName=UiAutomator2, got %v", result["appium:automationName"])
+	}
+
+	// Verify it is a true copy (modifying clone does not affect original)
+	result["platformName"] = "iOS"
+	if caps["platformName"] != "Android" {
+		t.Error("modifying clone should not affect original")
+	}
+}
+
+// Tests for parseDevices
+
+func TestParseDevices_SingleDevice(t *testing.T) {
+	devices := parseDevices("emulator-5554", 0, "android")
+	if len(devices) != 1 || devices[0] != "emulator-5554" {
+		t.Errorf("parseDevices single device = %v, want [emulator-5554]", devices)
+	}
+}
+
+func TestParseDevices_MultipleDevices(t *testing.T) {
+	devices := parseDevices("emulator-5554, emulator-5556", 0, "android")
+	if len(devices) != 2 {
+		t.Fatalf("expected 2 devices, got %d", len(devices))
+	}
+	if devices[0] != "emulator-5554" {
+		t.Errorf("devices[0] = %q, want %q", devices[0], "emulator-5554")
+	}
+	if devices[1] != "emulator-5556" {
+		t.Errorf("devices[1] = %q, want %q", devices[1], "emulator-5556")
+	}
+}
+
+func TestParseDevices_EmptyFlag(t *testing.T) {
+	devices := parseDevices("", 2, "android")
+	if devices != nil {
+		t.Errorf("parseDevices empty flag = %v, want nil", devices)
+	}
+}
+
+func TestParseDevices_NoFlagsSet(t *testing.T) {
+	devices := parseDevices("", 0, "")
+	if devices != nil {
+		t.Errorf("parseDevices no flags = %v, want nil", devices)
+	}
+}
+
+func TestParseDevices_WhitespaceHandling(t *testing.T) {
+	devices := parseDevices("  device1  ,  device2  ", 0, "")
+	if len(devices) != 2 {
+		t.Fatalf("expected 2 devices, got %d", len(devices))
+	}
+	if devices[0] != "device1" {
+		t.Errorf("devices[0] = %q, want %q", devices[0], "device1")
+	}
+	if devices[1] != "device2" {
+		t.Errorf("devices[1] = %q, want %q", devices[1], "device2")
+	}
+}
+
+// Test executeTest with ShutdownAfter flag
+
+func TestExecuteTest_WithShutdownAfter(t *testing.T) {
+	dir := t.TempDir()
+	flowFile := dir + "/test.yaml"
+	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		FlowPaths:     []string{flowFile},
+		OutputDir:     dir + "/reports",
+		Platform:      "mock",
+		Devices:       []string{"test-device"},
+		ShutdownAfter: true,
+	}
+
+	err := executeTest(cfg)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// Test color function
+
+func TestColor_Enabled(t *testing.T) {
+	oldEnabled := colorsEnabled
+	defer func() { colorsEnabled = oldEnabled }()
+
+	colorsEnabled = true
+	result := color(colorGreen)
+	if result != colorGreen {
+		t.Errorf("color(colorGreen) with colors enabled = %q, want %q", result, colorGreen)
+	}
+}
+
+func TestColor_Disabled(t *testing.T) {
+	oldEnabled := colorsEnabled
+	defer func() { colorsEnabled = oldEnabled }()
+
+	colorsEnabled = false
+	result := color(colorGreen)
+	if result != "" {
+		t.Errorf("color(colorGreen) with colors disabled = %q, want empty string", result)
+	}
+}
+
+// ============================================================
+// Tests for enhanceNoDevicesError
+// ============================================================
+
+func TestEnhanceNoDevicesError_BasicAutoStart(t *testing.T) {
+	// Save and restore os.Args
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	os.Args = []string{"maestro-runner", "test", "flow.yaml"}
+
+	noDevErr := &device.NoDevicesError{
+		Message: "No Android devices or emulators found",
+		Suggestions: []string{
+			"Auto-start first AVD: maestro-runner --auto-start-emulator <flow>",
+		},
+	}
+	cfg := &RunConfig{}
+
+	enhanceNoDevicesError(noDevErr, cfg)
+
+	expected := "Auto-start first AVD: maestro-runner --auto-start-emulator test flow.yaml"
+	if noDevErr.Suggestions[0] != expected {
+		t.Errorf("enhanceNoDevicesError auto-start suggestion:\n  got:  %q\n  want: %q", noDevErr.Suggestions[0], expected)
+	}
+}
+
+func TestEnhanceNoDevicesError_StartEmulatorWithAVD(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	os.Args = []string{"maestro-runner", "--platform", "android", "test", "flows/"}
+
+	noDevErr := &device.NoDevicesError{
+		Message: "No Android devices or emulators found",
+		Suggestions: []string{
+			"Start specific AVD: maestro-runner --start-emulator Pixel_7_API_33 <flow>",
+		},
+	}
+	cfg := &RunConfig{}
+
+	enhanceNoDevicesError(noDevErr, cfg)
+
+	expected := "Start specific AVD: maestro-runner --platform android --start-emulator Pixel_7_API_33 test flows/"
+	if noDevErr.Suggestions[0] != expected {
+		t.Errorf("enhanceNoDevicesError start-emulator suggestion:\n  got:  %q\n  want: %q", noDevErr.Suggestions[0], expected)
+	}
+}
+
+func TestEnhanceNoDevicesError_ParallelSuggestion(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	os.Args = []string{"maestro-runner", "test", "flows/"}
+
+	noDevErr := &device.NoDevicesError{
+		Message: "No Android devices or emulators found",
+		Suggestions: []string{
+			"Run in parallel on 2 emulators: maestro-runner --parallel 2 --auto-start-emulator <flows>",
+		},
+	}
+	cfg := &RunConfig{}
+
+	enhanceNoDevicesError(noDevErr, cfg)
+
+	expected := "Run in parallel on 2 emulators: maestro-runner --parallel 2 --auto-start-emulator test flows/"
+	if noDevErr.Suggestions[0] != expected {
+		t.Errorf("enhanceNoDevicesError parallel suggestion:\n  got:  %q\n  want: %q", noDevErr.Suggestions[0], expected)
+	}
+}
+
+func TestEnhanceNoDevicesError_NoTestSubcommand(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	// When there is no "test" subcommand in args
+	os.Args = []string{"maestro-runner", "flow.yaml"}
+
+	noDevErr := &device.NoDevicesError{
+		Message: "No Android devices or emulators found",
+		Suggestions: []string{
+			"Auto-start first AVD: maestro-runner --auto-start-emulator <flow>",
+		},
+	}
+	cfg := &RunConfig{}
+
+	enhanceNoDevicesError(noDevErr, cfg)
+
+	// When no "test" found, globalPart = entire args joined, testPart = ""
+	expected := "Auto-start first AVD: maestro-runner flow.yaml --auto-start-emulator"
+	if noDevErr.Suggestions[0] != expected {
+		t.Errorf("enhanceNoDevicesError no-test suggestion:\n  got:  %q\n  want: %q", noDevErr.Suggestions[0], expected)
+	}
+}
+
+func TestEnhanceNoDevicesError_NoMatchingSuggestions(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	os.Args = []string{"maestro-runner", "test", "flow.yaml"}
+
+	noDevErr := &device.NoDevicesError{
+		Message: "No Android devices or emulators found",
+		Suggestions: []string{
+			"Connect a physical device via USB (enable USB debugging)",
+		},
+	}
+	cfg := &RunConfig{}
+
+	enhanceNoDevicesError(noDevErr, cfg)
+
+	// Suggestion that does not match any pattern should remain unchanged
+	if noDevErr.Suggestions[0] != "Connect a physical device via USB (enable USB debugging)" {
+		t.Errorf("non-matching suggestion should remain unchanged, got: %q", noDevErr.Suggestions[0])
+	}
+}
+
+func TestEnhanceNoDevicesError_GlobalFlagsBeforeTest(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	os.Args = []string{"maestro-runner", "--platform", "android", "--verbose", "test", "-e", "USER=test", "flow.yaml"}
+
+	noDevErr := &device.NoDevicesError{
+		Message: "No Android devices or emulators found",
+		Suggestions: []string{
+			"Auto-start first AVD: maestro-runner --auto-start-emulator <flow>",
+		},
+	}
+	cfg := &RunConfig{}
+
+	enhanceNoDevicesError(noDevErr, cfg)
+
+	expected := "Auto-start first AVD: maestro-runner --platform android --verbose --auto-start-emulator test -e USER=test flow.yaml"
+	if noDevErr.Suggestions[0] != expected {
+		t.Errorf("enhanceNoDevicesError with global flags:\n  got:  %q\n  want: %q", noDevErr.Suggestions[0], expected)
+	}
+}
+
+func TestEnhanceNoDevicesError_EmptySuggestions(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	os.Args = []string{"maestro-runner", "test", "flow.yaml"}
+
+	noDevErr := &device.NoDevicesError{
+		Message:     "No Android devices or emulators found",
+		Suggestions: []string{},
+	}
+	cfg := &RunConfig{}
+
+	// Should not panic on empty suggestions
+	enhanceNoDevicesError(noDevErr, cfg)
+
+	if len(noDevErr.Suggestions) != 0 {
+		t.Errorf("expected empty suggestions, got %d", len(noDevErr.Suggestions))
+	}
+}
+
+// ============================================================
+// Tests for bootTimeout (table-driven)
+// ============================================================
+
+func TestBootTimeout_TableDriven(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    int
+		expected time.Duration
+	}{
+		{"zero defaults to 180s", 0, 180 * time.Second},
+		{"custom 60s", 60, 60 * time.Second},
+		{"custom 300s", 300, 300 * time.Second},
+		{"custom 1s", 1, 1 * time.Second},
+		{"large value 3600s", 3600, 3600 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &RunConfig{BootTimeout: tt.input}
+			result := bootTimeout(cfg)
+			if result != tt.expected {
+				t.Errorf("bootTimeout(%d) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// ============================================================
+// Tests for handleEmulatorStartup
+// ============================================================
+
+func TestHandleEmulatorStartup_NonAndroidPlatform(t *testing.T) {
+	// Should return nil immediately for non-android platforms
+	cfg := &RunConfig{Platform: "ios"}
+	mgr := emulator.NewManager()
+
+	err := handleEmulatorStartup(cfg, mgr)
+	if err != nil {
+		t.Errorf("handleEmulatorStartup for ios should return nil, got: %v", err)
+	}
+}
+
+func TestHandleEmulatorStartup_NoFlags(t *testing.T) {
+	// When neither StartEmulator nor AutoStartEmulator are set
+	cfg := &RunConfig{
+		Platform:          "android",
+		StartEmulator:     "",
+		AutoStartEmulator: false,
+	}
+	mgr := emulator.NewManager()
+
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	err := handleEmulatorStartup(cfg, mgr)
+	if err != nil {
+		t.Errorf("handleEmulatorStartup with no flags should return nil, got: %v", err)
+	}
+}
+
+func TestHandleEmulatorStartup_EmptyPlatform(t *testing.T) {
+	// Empty platform should be treated as Android (not skipped)
+	cfg := &RunConfig{
+		Platform:          "",
+		StartEmulator:     "",
+		AutoStartEmulator: false,
+	}
+	mgr := emulator.NewManager()
+
+	err := handleEmulatorStartup(cfg, mgr)
+	if err != nil {
+		t.Errorf("handleEmulatorStartup with empty platform should return nil, got: %v", err)
+	}
+}
+
+// ============================================================
+// Tests for determineExecutionMode
+// ============================================================
+
+func TestDetermineExecutionMode_SingleDevice(t *testing.T) {
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		Parallel:  0,
+		Devices:   nil,
+		OutputDir: t.TempDir(),
+	}
+	mgr := emulator.NewManager()
+
+	needsParallel, deviceIDs, err := determineExecutionMode(cfg, mgr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if needsParallel {
+		t.Error("expected needsParallel=false for single device mode")
+	}
+	if len(deviceIDs) != 0 {
+		t.Errorf("expected empty deviceIDs, got %v", deviceIDs)
+	}
+}
+
+func TestDetermineExecutionMode_ExplicitDevices(t *testing.T) {
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		Parallel:  0,
+		Devices:   []string{"emulator-5554", "emulator-5556"},
+		OutputDir: t.TempDir(),
+	}
+	mgr := emulator.NewManager()
+
+	needsParallel, deviceIDs, err := determineExecutionMode(cfg, mgr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !needsParallel {
+		t.Error("expected needsParallel=true when multiple devices specified")
+	}
+	if len(deviceIDs) != 2 {
+		t.Errorf("expected 2 deviceIDs, got %d", len(deviceIDs))
+	}
+}
+
+func TestDetermineExecutionMode_ParallelWithoutAutoStart(t *testing.T) {
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		Parallel:          2,
+		Devices:           nil,
+		AutoStartEmulator: false,
+		Platform:          "android",
+		OutputDir:         t.TempDir(),
+	}
+	mgr := emulator.NewManager()
+
+	// This should fail because no devices found and auto-start disabled
+	_, _, err := determineExecutionMode(cfg, mgr)
+	if err == nil {
+		t.Error("expected error when parallel requested with no devices and auto-start disabled")
+	}
+}
+
+func TestDetermineExecutionMode_SingleExplicitDevice(t *testing.T) {
+	// Single device in Devices slice, Parallel=0 => not parallel
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		Parallel:  0,
+		Devices:   []string{"emulator-5554"},
+		OutputDir: t.TempDir(),
+	}
+	mgr := emulator.NewManager()
+
+	needsParallel, _, err := determineExecutionMode(cfg, mgr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if needsParallel {
+		t.Error("expected needsParallel=false for single explicit device")
+	}
+}
+
+// ============================================================
+// Tests for executeFlowsWithMode
+// ============================================================
+
+func TestExecuteFlowsWithMode_AppiumParallel(t *testing.T) {
+	cfg := &RunConfig{
+		Driver: "appium",
+	}
+	_, err := executeFlowsWithMode(cfg, nil, true, []string{"d1", "d2"})
+	if err == nil {
+		t.Error("expected error for parallel Appium execution")
+	}
+	if !strings.Contains(err.Error(), "parallel execution not yet supported for Appium") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ============================================================
+// Tests for handleEmulatorStartup with StartEmulator set (error path)
+// ============================================================
+
+func TestHandleEmulatorStartup_StartEmulatorError(t *testing.T) {
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		Platform:      "android",
+		StartEmulator: "NonExistent_AVD_12345",
+		BootTimeout:   5,
+	}
+	mgr := emulator.NewManager()
+
+	err := handleEmulatorStartup(cfg, mgr)
+	// This will fail because the AVD does not exist (emulator binary may not be found)
+	if err == nil {
+		t.Error("expected error when starting nonexistent emulator")
+	}
+}
+
+// ============================================================
+// Tests for executeTest signal handling setup
+// ============================================================
+
+func TestExecuteTest_SignalSetup(t *testing.T) {
+	// Verify executeTest sets up signal handling without crashing
+	// We test this by running a successful mock test which goes through
+	// the signal setup code path.
+	dir := t.TempDir()
+	flowFile := dir + "/test.yaml"
+	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		FlowPaths:     []string{flowFile},
+		OutputDir:     dir + "/reports",
+		Platform:      "mock",
+		Devices:       []string{"test-device"},
+		ShutdownAfter: false,
+	}
+
+	err := executeTest(cfg)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ============================================================
+// Tests for printSummary (does not crash)
+// ============================================================
+
+func TestPrintSummary_NoCrash(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	result := &executor.RunResult{
+		TotalFlows:  2,
+		PassedFlows: 1,
+		FailedFlows: 1,
+		Status:      report.StatusFailed,
+		Duration:    5000,
+		FlowResults: []executor.FlowResult{
+			{
+				Name:         "test-flow-1",
+				Status:       report.StatusPassed,
+				StepsTotal:   3,
+				StepsPassed:  3,
+				StepsFailed:  0,
+				StepsSkipped: 0,
+				Duration:     2000,
+			},
+			{
+				Name:         "very-long-test-flow-name-that-exceeds-42-characters-for-truncation",
+				Status:       report.StatusFailed,
+				StepsTotal:   5,
+				StepsPassed:  2,
+				StepsFailed:  3,
+				StepsSkipped: 0,
+				Duration:     3000,
+				Error:        "some error",
+			},
+		},
+	}
+
+	// Should not panic
+	printSummary(result)
+}
+
+func TestPrintSummary_WithSkipped(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	result := &executor.RunResult{
+		TotalFlows:   1,
+		PassedFlows:  0,
+		FailedFlows:  0,
+		SkippedFlows: 1,
+		Status:       report.StatusPassed,
+		Duration:     500,
+		FlowResults: []executor.FlowResult{
+			{
+				Name:         "skipped-flow",
+				Status:       report.StatusSkipped,
+				StepsTotal:   0,
+				StepsSkipped: 0,
+				Duration:     0,
+			},
+		},
+	}
+
+	printSummary(result)
+}
+
+// ============================================================
+// Tests for callback functions (no panics)
+// ============================================================
+
+func TestOnFlowStart_NoCrash(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	onFlowStart(0, 5, "Login Flow", "login.yaml")
+}
+
+func TestOnStepComplete_Passed(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	onStepComplete(0, "tapOn: button", true, 100, "")
+}
+
+func TestOnStepComplete_Failed(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	onStepComplete(0, "tapOn: button", false, 100, "element not found")
+}
+
+func TestOnStepComplete_Slow(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	// Should show slow warning (>5000ms)
+	onStepComplete(0, "tapOn: button", true, 6000, "")
+}
+
+func TestOnStepComplete_CompoundStepNotSlow(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	// Compound steps (runFlow, repeat, retry) should not show slow warning
+	onStepComplete(0, "runFlow: login", true, 10000, "")
+	onStepComplete(1, "repeat: 3 times", true, 15000, "")
+	onStepComplete(2, "retry: 2 times", true, 8000, "")
+}
+
+func TestOnNestedFlowStart_NoCrash(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	onNestedFlowStart(0, "nested flow")
+	onNestedFlowStart(1, "deeply nested flow")
+}
+
+func TestOnNestedStep_PassedAndFailed(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	onNestedStep(0, "tapOn: nested button", true, 50, "")
+	onNestedStep(0, "tapOn: nested button", false, 50, "element not found")
+	// Slow nested step
+	onNestedStep(1, "scrollDown", true, 6000, "")
+}
+
+func TestOnFlowEnd_PassedAndFailed(t *testing.T) {
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	onFlowEnd("Login Flow", true, 2000, "")
+	onFlowEnd("Checkout Flow", false, 5000, "step failed")
 }

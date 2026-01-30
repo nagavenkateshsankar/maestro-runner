@@ -120,6 +120,9 @@ Examples:
 			EnvVars: []string{"MAESTRO_WAIT_FOR_IDLE_TIMEOUT"},
 		},
 
+		// Emulator management flags (start-emulator, auto-start-emulator,
+		// shutdown-after, boot-timeout) are global flags defined in cli.go.
+
 		// AI options
 		&cli.BoolFlag{
 			Name:  "analyze",
@@ -500,7 +503,7 @@ func resolveOutputDir(output string, flatten bool) (string, error) {
 
 func executeTest(cfg *RunConfig) error {
 	// 1. Create output directory
-	if err := os.MkdirAll(cfg.OutputDir, 0755); err != nil {
+	if err := os.MkdirAll(cfg.OutputDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -1365,20 +1368,36 @@ func checkDeviceAvailable(deviceID, platform string) error {
 }
 
 // enhanceNoDevicesError enhances error suggestions with actual command context.
+// Emulator flags are global flags, so they must appear before the "test" subcommand.
 func enhanceNoDevicesError(noDevErr *device.NoDevicesError, cfg *RunConfig) {
-	// Reconstruct the user's original command from os.Args
-	// Example: maestro-runner test flow.yaml --platform android -e USER=test
-	userCommand := strings.Join(os.Args, " ")
+	// Split os.Args into: binary + global flags vs "test" subcommand + its args.
+	// Example: maestro-runner --platform android test flow.yaml
+	//   → globalPart = "maestro-runner --platform android"
+	//   → testPart   = "test flow.yaml"
+	args := os.Args
+	globalPart := args[0] // at minimum the binary name
+	testPart := ""
+	for i := 1; i < len(args); i++ {
+		if args[i] == "test" {
+			globalPart = strings.Join(args[:i], " ")
+			testPart = " " + strings.Join(args[i:], " ")
+			break
+		}
+	}
+	// If no "test" subcommand found, treat entire command as global
+	if testPart == "" {
+		globalPart = strings.Join(args, " ")
+	}
 
-	// Build suggestions with the actual command
+	logger.Debug("Enhancing NoDevicesError: global=%q test=%q", globalPart, testPart)
+
+	// Build suggestions inserting flags between global part and test part
 	for i, suggestion := range noDevErr.Suggestions {
-		// Replace generic placeholders with actual command + flag
 		if strings.Contains(suggestion, "--auto-start-emulator <flow>") {
 			noDevErr.Suggestions[i] = strings.ReplaceAll(suggestion,
 				"maestro-runner --auto-start-emulator <flow>",
-				userCommand+" --auto-start-emulator")
+				globalPart+" --auto-start-emulator"+testPart)
 		} else if strings.Contains(suggestion, "--start-emulator") && strings.Contains(suggestion, "<flow>") {
-			// Extract AVD name from the suggestion
 			parts := strings.Fields(suggestion)
 			var avdName string
 			for j, part := range parts {
@@ -1389,9 +1408,8 @@ func enhanceNoDevicesError(noDevErr *device.NoDevicesError, cfg *RunConfig) {
 			}
 			noDevErr.Suggestions[i] = strings.ReplaceAll(suggestion,
 				"maestro-runner --start-emulator "+avdName+" <flow>",
-				userCommand+" --start-emulator "+avdName)
+				globalPart+" --start-emulator "+avdName+testPart)
 		} else if strings.Contains(suggestion, "--parallel") && strings.Contains(suggestion, "<flows>") {
-			// Extract parallel count
 			parts := strings.Fields(suggestion)
 			var parallelCount string
 			for j, part := range parts {
@@ -1402,8 +1420,13 @@ func enhanceNoDevicesError(noDevErr *device.NoDevicesError, cfg *RunConfig) {
 			}
 			noDevErr.Suggestions[i] = strings.ReplaceAll(suggestion,
 				"maestro-runner --parallel "+parallelCount+" --auto-start-emulator <flows>",
-				userCommand+" --parallel "+parallelCount+" --auto-start-emulator")
+				globalPart+" --parallel "+parallelCount+" --auto-start-emulator"+testPart)
 		}
+	}
+
+	logger.Debug("Enhanced suggestions count: %d", len(noDevErr.Suggestions))
+	for i, s := range noDevErr.Suggestions {
+		logger.Debug("  Suggestion %d: %s", i+1, s)
 	}
 }
 
