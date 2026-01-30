@@ -16,6 +16,7 @@ import (
 	appiumdriver "github.com/devicelab-dev/maestro-runner/pkg/driver/appium"
 	"github.com/devicelab-dev/maestro-runner/pkg/driver/mock"
 	wdadriver "github.com/devicelab-dev/maestro-runner/pkg/driver/wda"
+	"github.com/devicelab-dev/maestro-runner/pkg/emulator"
 	"github.com/devicelab-dev/maestro-runner/pkg/executor"
 	"github.com/devicelab-dev/maestro-runner/pkg/flow"
 	"github.com/devicelab-dev/maestro-runner/pkg/logger"
@@ -154,6 +155,86 @@ func parseDevices(deviceFlag string, parallelCount int, platform string) []strin
 	return nil
 }
 
+// handleEmulatorStartup starts Android emulators if requested via CLI flags.
+// Handles two cases:
+// 1. --start-emulator: Explicitly start a specific AVD
+// 2. --auto-start-emulator: Start an emulator if no devices are found
+func handleEmulatorStartup(cfg *RunConfig, mgr *emulator.Manager) error {
+	// Only handle Android emulators
+	if cfg.Platform != "" && cfg.Platform != "android" {
+		return nil
+	}
+
+	timeout := time.Duration(cfg.BootTimeout) * time.Second
+	if timeout == 0 {
+		timeout = 180 * time.Second // Default 3 minutes
+	}
+
+	// Case 1: Explicit --start-emulator flag
+	if cfg.StartEmulator != "" {
+		fmt.Printf("  %s⏳ Starting emulator: %s%s\n", color(colorCyan), cfg.StartEmulator, color(colorReset))
+		logger.Info("Starting emulator: %s (timeout: %v)", cfg.StartEmulator, timeout)
+
+		serial, err := mgr.Start(cfg.StartEmulator, timeout)
+		if err != nil {
+			return fmt.Errorf("failed to start emulator %s: %w", cfg.StartEmulator, err)
+		}
+
+		fmt.Printf("  %s✓ Emulator started: %s%s\n", color(colorGreen), serial, color(colorReset))
+		logger.Info("Emulator started successfully: %s", serial)
+
+		// Add to device list if not already specified
+		if len(cfg.Devices) == 0 {
+			cfg.Devices = []string{serial}
+			logger.Info("Added emulator to device list: %s", serial)
+		}
+
+		return nil
+	}
+
+	// Case 2: Auto-start if --auto-start-emulator and no devices
+	if cfg.AutoStartEmulator {
+		// Check if we already have devices
+		devices, _ := device.ListDevices()
+		if len(devices) > 0 {
+			logger.Info("Devices already available, skipping auto-start")
+			return nil
+		}
+
+		// No devices found - start an emulator
+		logger.Info("No devices found, auto-starting emulator...")
+		fmt.Printf("  %s⏳ No devices found, auto-starting emulator...%s\n", color(colorCyan), color(colorReset))
+
+		// Find first available AVD
+		avds, err := emulator.ListAVDs()
+		if err != nil {
+			return fmt.Errorf("failed to list AVDs: %w", err)
+		}
+		if len(avds) == 0 {
+			return fmt.Errorf("no devices and no AVDs available. Create an AVD with: avdmanager create avd ...")
+		}
+
+		// Start the first AVD
+		avdName := avds[0].Name
+		logger.Info("Starting AVD: %s", avdName)
+		fmt.Printf("  %s⏳ Starting AVD: %s%s\n", color(colorCyan), avdName, color(colorReset))
+
+		serial, err := mgr.Start(avdName, timeout)
+		if err != nil {
+			return fmt.Errorf("failed to auto-start emulator %s: %w", avdName, err)
+		}
+
+		fmt.Printf("  %s✓ Emulator started: %s%s\n", color(colorGreen), serial, color(colorReset))
+		logger.Info("Emulator auto-started successfully: %s", serial)
+
+		// Add to device list
+		cfg.Devices = []string{serial}
+		logger.Info("Added auto-started emulator to device list: %s", serial)
+	}
+
+	return nil
+}
+
 // RunConfig holds the complete test run configuration.
 type RunConfig struct {
 	// Paths
@@ -193,6 +274,12 @@ type RunConfig struct {
 	// Driver settings
 	WaitForIdleTimeout int    // Wait for device idle in ms (0 = disabled, default 5000)
 	TeamID             string // Apple Development Team ID for WDA code signing
+
+	// Emulator management
+	StartEmulator     string // AVD name to start (e.g., Pixel_7_API_33)
+	AutoStartEmulator bool   // Auto-start an emulator if no devices found
+	ShutdownAfter     bool   // Shutdown emulators started by maestro-runner after tests
+	BootTimeout       int    // Emulator boot timeout in seconds
 }
 
 func printBanner() {
@@ -351,6 +438,10 @@ func runTest(c *cli.Context) error {
 		Capabilities:       caps,
 		WaitForIdleTimeout: getInt("wait-for-idle-timeout"),
 		TeamID:             getString("team-id"),
+		StartEmulator:      getString("start-emulator"),
+		AutoStartEmulator:  getBool("auto-start-emulator"),
+		ShutdownAfter:      getBool("shutdown-after"),
+		BootTimeout:        getInt("boot-timeout"),
 	}
 
 	// Apply waitForIdleTimeout with priority:
@@ -416,6 +507,17 @@ func executeTest(cfg *RunConfig) error {
 	logger.Info("Platform: %s", cfg.Platform)
 	logger.Info("Driver: %s", cfg.Driver)
 
+	// 2.5. Initialize emulator manager (for Android)
+	emulatorMgr := emulator.NewManager()
+	defer func() {
+		if cfg.ShutdownAfter {
+			logger.Info("Shutting down emulators started by maestro-runner...")
+			if err := emulatorMgr.ShutdownAll(); err != nil {
+				logger.Error("Failed to shutdown emulators: %v", err)
+			}
+		}
+	}()
+
 	// 3. Validate and parse flows
 	flows, err := validateAndParseFlows(cfg)
 	if err != nil {
@@ -429,8 +531,14 @@ func executeTest(cfg *RunConfig) error {
 		cfg.AppID = flows[0].Config.AppID
 	}
 
+	// 3.5. Handle emulator startup (if requested)
+	if err := handleEmulatorStartup(cfg, emulatorMgr); err != nil {
+		logger.Error("Emulator startup failed: %v", err)
+		return err
+	}
+
 	// 4. Determine execution mode and devices
-	needsParallel, deviceIDs, err := determineExecutionMode(cfg)
+	needsParallel, deviceIDs, err := determineExecutionMode(cfg, emulatorMgr)
 	if err != nil {
 		logger.Error("Failed to determine execution mode: %v", err)
 		return err
@@ -536,16 +644,69 @@ func validateAndParseFlows(cfg *RunConfig) ([]flow.Flow, error) {
 }
 
 // determineExecutionMode decides whether to run in parallel and which devices to use.
-func determineExecutionMode(cfg *RunConfig) (needsParallel bool, deviceIDs []string, err error) {
+// If --parallel N is specified with --auto-start-emulator, this will start additional
+// emulators to reach N total devices.
+func determineExecutionMode(cfg *RunConfig, emulatorMgr *emulator.Manager) (needsParallel bool, deviceIDs []string, err error) {
 	needsParallel = cfg.Parallel > 0 || len(cfg.Devices) > 1
 
 	if needsParallel {
 		if len(cfg.Devices) > 0 {
 			deviceIDs = cfg.Devices
 		} else if cfg.Parallel > 0 {
-			deviceIDs, err = autoDetectDevices(cfg.Platform, cfg.Parallel)
-			if err != nil {
-				return false, nil, fmt.Errorf("failed to auto-detect devices: %w", err)
+			// Try to auto-detect existing devices
+			existingDevices, detectErr := autoDetectDevices(cfg.Platform, cfg.Parallel)
+			if detectErr != nil && !cfg.AutoStartEmulator {
+				// No devices and auto-start disabled
+				return false, nil, fmt.Errorf("failed to auto-detect devices: %w", detectErr)
+			}
+
+			// Start with existing devices (may be empty if none found)
+			if detectErr == nil {
+				deviceIDs = existingDevices
+			}
+
+			// Check if we need more devices
+			needed := cfg.Parallel - len(deviceIDs)
+			if needed > 0 && cfg.AutoStartEmulator && (cfg.Platform == "" || cfg.Platform == "android") {
+				logger.Info("Need %d more devices for --parallel %d, starting emulators...", needed, cfg.Parallel)
+				fmt.Printf("  %s⏳ Starting %d emulator(s) for parallel execution...%s\n", color(colorCyan), needed, color(colorReset))
+
+				// List available AVDs
+				avds, err := emulator.ListAVDs()
+				if err != nil {
+					return false, nil, fmt.Errorf("failed to list AVDs: %w", err)
+				}
+				if len(avds) == 0 {
+					return false, nil, fmt.Errorf("need %d more devices but no AVDs available. Create AVDs with: avdmanager create avd ...", needed)
+				}
+
+				// Start emulators sequentially to avoid port conflicts
+				timeout := time.Duration(cfg.BootTimeout) * time.Second
+				if timeout == 0 {
+					timeout = 180 * time.Second
+				}
+
+				for i := 0; i < needed && i < len(avds); i++ {
+					avdName := avds[i].Name
+					logger.Info("Starting emulator %d/%d: %s", i+1, needed, avdName)
+					fmt.Printf("  %s⏳ Starting emulator %d/%d: %s%s\n", color(colorCyan), i+1, needed, avdName, color(colorReset))
+
+					serial, err := emulatorMgr.Start(avdName, timeout)
+					if err != nil {
+						return false, nil, fmt.Errorf("failed to start emulator %s: %w", avdName, err)
+					}
+
+					deviceIDs = append(deviceIDs, serial)
+					logger.Info("Emulator started: %s (%d/%d)", serial, i+1, needed)
+					fmt.Printf("  %s✓ Emulator started: %s%s\n", color(colorGreen), serial, color(colorReset))
+				}
+
+				if len(deviceIDs) < cfg.Parallel {
+					return false, nil, fmt.Errorf("could only start %d/%d devices (found %d AVDs)", len(deviceIDs), cfg.Parallel, len(avds))
+				}
+			} else if needed > 0 {
+				// Need more devices but auto-start is disabled
+				return false, nil, fmt.Errorf("--parallel %d requires %d devices but only found %d. Use --auto-start-emulator to start additional emulators", cfg.Parallel, cfg.Parallel, len(deviceIDs))
 			}
 		}
 		printSetupSuccess(fmt.Sprintf("Using %d device(s) for parallel execution", len(deviceIDs)))

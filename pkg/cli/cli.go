@@ -62,6 +62,27 @@ var GlobalFlags = []cli.Flag{
 		Usage:   "Apple Development Team ID for WDA code signing (iOS)",
 		EnvVars: []string{"MAESTRO_TEAM_ID", "DEVELOPMENT_TEAM"},
 	},
+	&cli.StringFlag{
+		Name:    "start-emulator",
+		Usage:   "Start emulator with AVD name (e.g., Pixel_7_API_33)",
+		EnvVars: []string{"MAESTRO_START_EMULATOR"},
+	},
+	&cli.BoolFlag{
+		Name:    "auto-start-emulator",
+		Usage:   "Auto-start an emulator if no devices found",
+		EnvVars: []string{"MAESTRO_AUTO_START_EMULATOR"},
+	},
+	&cli.BoolFlag{
+		Name:    "shutdown-after",
+		Value:   true,
+		Usage:   "Shutdown emulators started by maestro-runner after tests",
+		EnvVars: []string{"MAESTRO_SHUTDOWN_AFTER"},
+	},
+	&cli.IntFlag{
+		Name:  "boot-timeout",
+		Value: 180,
+		Usage: "Emulator boot timeout in seconds",
+	},
 }
 
 // Execute runs the CLI.

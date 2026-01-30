@@ -77,6 +77,16 @@ func Error(format string, v ...interface{}) {
 	}
 }
 
+// Warn logs a warning message.
+func Warn(format string, v ...interface{}) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if globalLogger != nil {
+		globalLogger.Printf("[WARN] "+format, v...)
+	}
+}
+
 // GetWriter returns the underlying writer for use by drivers.
 func GetWriter() io.Writer {
 	mu.Lock()
