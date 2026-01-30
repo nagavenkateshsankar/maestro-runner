@@ -1,10 +1,7 @@
 package emulator
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/devicelab-dev/maestro-runner/pkg/logger"
@@ -17,16 +14,9 @@ const (
 
 // NewManager creates a new emulator manager
 func NewManager() *Manager {
-	mgr := &Manager{
+	return &Manager{
 		portMap: make(map[string]int),
 	}
-
-	// Load persistent port mapping
-	if err := mgr.loadPortMapping(); err != nil {
-		logger.Debug("Could not load port mapping: %v", err)
-	}
-
-	return mgr
 }
 
 // Start starts an emulator and tracks it
@@ -59,11 +49,9 @@ func (m *Manager) StartWithRetry(avdName string, timeout time.Duration, maxAttem
 			}
 			m.started.Store(startedSerial, instance)
 
-			// Save port mapping
 			m.mu.Lock()
 			m.portMap[avdName] = port
 			m.mu.Unlock()
-			m.savePortMapping()
 
 			logger.Info("Emulator started and tracked: %s", startedSerial)
 			return startedSerial, nil
@@ -92,9 +80,9 @@ func (m *Manager) AllocatePort(avdName string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Check if we have a persistent mapping
+	// Check if we already allocated a port this session
 	if port, exists := m.portMap[avdName]; exists {
-		logger.Debug("Reusing persistent port %d for AVD %s", port, avdName)
+		logger.Debug("Reusing port %d for AVD %s", port, avdName)
 		return port
 	}
 
@@ -210,59 +198,3 @@ func (m *Manager) GetStartedEmulators() []string {
 	return serials
 }
 
-// loadPortMapping loads persistent port mapping from file
-func (m *Manager) loadPortMapping() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	portMapFile := filepath.Join(homeDir, ".maestro-runner", "emulator-ports.json")
-	data, err := os.ReadFile(portMapFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // File doesn't exist yet, that's OK
-		}
-		return err
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := json.Unmarshal(data, &m.portMap); err != nil {
-		return err
-	}
-
-	logger.Debug("Loaded port mapping: %v", m.portMap)
-	return nil
-}
-
-// savePortMapping saves persistent port mapping to file
-func (m *Manager) savePortMapping() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	maestroDir := filepath.Join(homeDir, ".maestro-runner")
-	if err := os.MkdirAll(maestroDir, 0755); err != nil {
-		return err
-	}
-
-	portMapFile := filepath.Join(maestroDir, "emulator-ports.json")
-
-	m.mu.Lock()
-	data, err := json.MarshalIndent(m.portMap, "", "  ")
-	m.mu.Unlock()
-
-	if err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(portMapFile, data, 0644); err != nil {
-		return err
-	}
-
-	logger.Debug("Saved port mapping to %s", portMapFile)
-	return nil
-}

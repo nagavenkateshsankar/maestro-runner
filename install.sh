@@ -1,6 +1,7 @@
 #!/bin/bash
 # Installation script for maestro-runner
-# Handles macOS Gatekeeper issues and installs to user's PATH
+# Installs to ~/.maestro-runner/ with bin/, cache/, drivers/ layout
+# Set MAESTRO_RUNNER_HOME to override the install location.
 
 set -e
 
@@ -46,34 +47,39 @@ echo -e "${GREEN}✓${NC} Build successful"
 echo ""
 
 # Determine install location
-INSTALL_DIR="$HOME/.local/bin"
-if [ ! -d "$INSTALL_DIR" ]; then
-    echo "Creating $INSTALL_DIR..."
-    mkdir -p "$INSTALL_DIR"
-fi
+INSTALL_DIR="${MAESTRO_RUNNER_HOME:-$HOME/.maestro-runner}"
+BIN_DIR="$INSTALL_DIR/bin"
+
+echo "Installing to $INSTALL_DIR..."
+mkdir -p "$BIN_DIR"
 
 # Move binary
-echo "Installing to $INSTALL_DIR..."
-mv maestro-runner "$INSTALL_DIR/maestro-runner"
-chmod +x "$INSTALL_DIR/maestro-runner"
+mv maestro-runner "$BIN_DIR/maestro-runner"
+chmod +x "$BIN_DIR/maestro-runner"
+
+# Copy drivers if present
+if [ -d "drivers" ]; then
+    cp -r drivers "$INSTALL_DIR/"
+    echo -e "${GREEN}✓${NC} Drivers copied to $INSTALL_DIR/drivers/"
+fi
 
 # macOS specific: Remove quarantine attribute
 if [ "$OS" = "Darwin" ]; then
     echo "Removing macOS quarantine attribute..."
-    xattr -d com.apple.quarantine "$INSTALL_DIR/maestro-runner" 2>/dev/null || true
+    xattr -d com.apple.quarantine "$BIN_DIR/maestro-runner" 2>/dev/null || true
     echo -e "${GREEN}✓${NC} macOS Gatekeeper bypass applied"
 fi
 
-echo -e "${GREEN}✓${NC} Installed to $INSTALL_DIR/maestro-runner"
+echo -e "${GREEN}✓${NC} Installed to $BIN_DIR/maestro-runner"
 echo ""
 
-# Check if install dir is in PATH
-if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    echo -e "${YELLOW}Warning: $INSTALL_DIR is not in your PATH${NC}"
+# Check if bin dir is in PATH
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    echo -e "${YELLOW}Warning: $BIN_DIR is not in your PATH${NC}"
     echo ""
     echo "Add this line to your shell profile (~/.bashrc, ~/.zshrc, or ~/.profile):"
     echo ""
-    echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    echo "  export PATH=\"$BIN_DIR:\$PATH\""
     echo ""
     echo "Then restart your shell or run: source ~/.zshrc"
     echo ""

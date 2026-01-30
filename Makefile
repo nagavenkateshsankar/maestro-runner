@@ -7,8 +7,8 @@ COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X github.com/devicelab-dev/maestro-runner/pkg/cli.Version=${VERSION} -X github.com/devicelab-dev/maestro-runner/pkg/cli.Commit=${COMMIT} -X github.com/devicelab-dev/maestro-runner/pkg/cli.BuildDate=${BUILD_DATE}"
 
-# Install directory
-INSTALL_DIR=$(HOME)/.maestro
+# Install directory (MAESTRO_RUNNER_HOME layout: bin/, cache/, drivers/)
+INSTALL_DIR=$(HOME)/.maestro-runner
 
 # Go commands
 GOCMD=go
@@ -23,9 +23,10 @@ all: build
 
 build:
 	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) .
-	@mkdir -p $(INSTALL_DIR)
-	@cp $(BINARY_NAME) $(INSTALL_DIR)/
-	@echo "Installed to $(INSTALL_DIR)/$(BINARY_NAME)"
+	@mkdir -p $(INSTALL_DIR)/bin
+	@cp $(BINARY_NAME) $(INSTALL_DIR)/bin/
+	@if [ -d drivers ]; then cp -r drivers $(INSTALL_DIR)/; fi
+	@echo "Installed to $(INSTALL_DIR)/bin/$(BINARY_NAME)"
 
 build-linux:
 	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64 .

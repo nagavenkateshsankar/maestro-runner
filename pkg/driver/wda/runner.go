@@ -4,12 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	goios "github.com/danielpaulus/go-ios/ios"
+	"github.com/danielpaulus/go-ios/ios/forward"
+	"github.com/devicelab-dev/maestro-runner/pkg/config"
 )
 
 const (
@@ -21,15 +26,15 @@ const (
 
 // Runner handles building and running WDA on iOS devices.
 type Runner struct {
-	deviceUDID       string
-	teamID           string
-	port             uint16
-	wdaPath          string
-	buildDir         string
-	cmd              *exec.Cmd
-	logFile          *os.File
-	iproxyCmd        *exec.Cmd // Port forwarding for physical devices
-	isSimulatorCache bool      // Cached device type
+	deviceUDID          string
+	teamID              string
+	port                uint16
+	wdaPath             string
+	buildDir            string
+	cmd                 *exec.Cmd
+	logFile             *os.File
+	portForwardListener io.Closer // Port forwarding for physical devices (go-ios)
+	isSimulatorCache    bool      // Cached device type
 }
 
 // NewRunner creates a new WDA runner.
@@ -175,9 +180,9 @@ func (r *Runner) Start(ctx context.Context) error {
 		return err
 	}
 
-	// For physical devices, start iproxy to forward the port from device to localhost
+	// For physical devices, forward the WDA port from device to localhost
 	if !r.isSimulatorCache {
-		if err := r.startIProxy(ctx); err != nil {
+		if err := r.startPortForward(); err != nil {
 			r.Stop()
 			return fmt.Errorf("failed to start port forwarding: %w", err)
 		}
@@ -187,18 +192,20 @@ func (r *Runner) Start(ctx context.Context) error {
 	return nil
 }
 
-// startIProxy starts iproxy to forward the WDA port from a physical device to localhost.
-func (r *Runner) startIProxy(ctx context.Context) error {
-	portStr := strconv.Itoa(int(r.port))
-
-	// iproxy LOCAL_PORT:DEVICE_PORT -u UDID
-	r.iproxyCmd = exec.CommandContext(ctx, "iproxy", portStr+":"+portStr, "-u", r.deviceUDID)
-
-	if err := r.iproxyCmd.Start(); err != nil {
-		return fmt.Errorf("iproxy failed to start: %w\nHint: Install libimobiledevice with 'brew install libimobiledevice'", err)
+// startPortForward uses go-ios to forward the WDA port from a physical device to localhost.
+func (r *Runner) startPortForward() error {
+	entry, err := goios.GetDevice(r.deviceUDID)
+	if err != nil {
+		return fmt.Errorf("device %s not found: %w", r.deviceUDID, err)
 	}
 
-	// Give iproxy a moment to establish the connection
+	listener, err := forward.Forward(entry, r.port, r.port)
+	if err != nil {
+		return fmt.Errorf("port forward %d->%d failed: %w", r.port, r.port, err)
+	}
+	r.portForwardListener = listener
+
+	// Give the forward a moment to establish
 	time.Sleep(500 * time.Millisecond)
 
 	return nil
@@ -274,10 +281,10 @@ func setPortEnv(target interface{}, portStr string) {
 
 // Stop terminates the running WDA.
 func (r *Runner) Stop() {
-	// Stop iproxy if running (for physical devices)
-	if r.iproxyCmd != nil && r.iproxyCmd.Process != nil {
-		r.iproxyCmd.Process.Kill()
-		r.iproxyCmd = nil
+	// Stop port forwarding if running (for physical devices)
+	if r.portForwardListener != nil {
+		r.portForwardListener.Close()
+		r.portForwardListener = nil
 	}
 	if r.cmd != nil && r.cmd.Process != nil {
 		r.cmd.Process.Kill()
@@ -302,11 +309,6 @@ func (r *Runner) Cleanup() {
 //   - Simulator: sim-ios18.5-iphone/
 //   - Real device: device-ios18.0-teamABC123/
 func (r *Runner) getBuildCacheDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
 	// Get device info
 	isSimulator, err := r.isSimulator()
 	if err != nil {
@@ -332,7 +334,7 @@ func (r *Runner) getBuildCacheDir() (string, error) {
 		configName = fmt.Sprintf("device-ios%s-team%s", iosVersion, teamID)
 	}
 
-	cacheDir := filepath.Join(home, ".maestro-runner", "cache", "wda-builds", configName)
+	cacheDir := filepath.Join(config.GetCacheDir(), "wda-builds", configName)
 	return cacheDir, nil
 }
 
@@ -407,14 +409,11 @@ func (r *Runner) getIOSVersion() (string, error) {
 		}
 	}
 
-	// For real devices, use ideviceinfo (requires libimobiledevice)
-	// Fallback to a generic version if not available
-	cmd = exec.Command("ideviceinfo", "-u", r.deviceUDID, "-k", "ProductVersion")
-	output, err = cmd.Output()
+	// For real devices, use go-ios to query the device
+	entry, err := goios.GetDevice(r.deviceUDID)
 	if err == nil {
-		version := strings.TrimSpace(string(output))
-		if version != "" {
-			return version, nil
+		if values, err := goios.GetValues(entry); err == nil && values.Value.ProductVersion != "" {
+			return values.Value.ProductVersion, nil
 		}
 	}
 

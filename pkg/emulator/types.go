@@ -31,7 +31,7 @@ type EmulatorInstance struct {
 // Manager manages emulator lifecycle and tracks started emulators
 type Manager struct {
 	started sync.Map       // serial -> *EmulatorInstance (thread-safe)
-	portMap map[string]int // AVD name -> console port (persistent mapping)
+	portMap map[string]int // AVD name -> console port (session-only)
 	mu      sync.Mutex     // Protects portMap
 }
 

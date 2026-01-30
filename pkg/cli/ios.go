@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	goios "github.com/danielpaulus/go-ios/ios"
+	"github.com/danielpaulus/go-ios/ios/zipconduit"
 	"github.com/devicelab-dev/maestro-runner/pkg/core"
 	wdadriver "github.com/devicelab-dev/maestro-runner/pkg/driver/wda"
 	"github.com/devicelab-dev/maestro-runner/pkg/logger"
@@ -201,19 +203,17 @@ func findBootedSimulator() (string, error) {
 	return "", fmt.Errorf("no booted simulator found")
 }
 
-// findConnectedDevice finds a connected physical iOS device using idevice_id.
+// findConnectedDevice finds a connected physical iOS device using go-ios.
 func findConnectedDevice() (string, error) {
-	out, err := runCommand("idevice_id", "-l")
+	list, err := goios.ListDevices()
 	if err != nil {
-		return "", fmt.Errorf("idevice_id failed: %w (is libimobiledevice installed?)", err)
+		return "", fmt.Errorf("failed to list devices: %w", err)
 	}
 
-	// idevice_id -l outputs one UDID per line
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	for _, line := range lines {
-		udid := strings.TrimSpace(line)
-		if udid != "" {
-			return udid, nil
+	for _, d := range list.DeviceList {
+		serial := d.Properties.SerialNumber
+		if serial != "" {
+			return serial, nil
 		}
 	}
 
@@ -253,25 +253,29 @@ func isIOSSimulator(udid string) bool {
 	return false
 }
 
-// getPhysicalDeviceInfo gets information about a physical iOS device using ideviceinfo.
+// getPhysicalDeviceInfo gets information about a physical iOS device using go-ios.
 func getPhysicalDeviceInfo(udid string) (*iosDeviceInfo, error) {
-	// Get device name
-	nameOut, err := runCommand("ideviceinfo", "-u", udid, "-k", "DeviceName")
+	entry, err := goios.GetDevice(udid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get device name: %w (is the device connected and trusted?)", err)
+		return nil, fmt.Errorf("device %s not found: %w (is the device connected and trusted?)", udid, err)
 	}
-	name := strings.TrimSpace(nameOut)
 
-	// Get iOS version
-	versionOut, err := runCommand("ideviceinfo", "-u", udid, "-k", "ProductVersion")
+	values, err := goios.GetValues(entry)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get device version: %w", err)
+		return nil, fmt.Errorf("failed to get device info: %w", err)
 	}
-	version := strings.TrimSpace(versionOut)
+
+	name := values.Value.DeviceName
+	if name == "" {
+		name = values.Value.ProductType
+	}
+	if name == "" {
+		name = "iOS Device"
+	}
 
 	return &iosDeviceInfo{
 		Name:        name,
-		OSVersion:   version,
+		OSVersion:   values.Value.ProductVersion,
 		IsSimulator: false,
 	}, nil
 }
@@ -303,10 +307,17 @@ func installIOSApp(udid string, appPath string, isSimulator bool) error {
 		return nil
 	}
 
-	// Physical device - use ios-deploy
-	out, err := runCommand("ios-deploy", "--bundle", appPath, "--id", udid, "--no-wifi")
+	// Physical device - use go-ios zipconduit
+	entry, err := goios.GetDevice(udid)
 	if err != nil {
-		return fmt.Errorf("ios-deploy failed: %w\nOutput: %s\nHint: Install ios-deploy with 'brew install ios-deploy'", err, out)
+		return fmt.Errorf("device %s not found: %w", udid, err)
+	}
+	conn, err := zipconduit.New(entry)
+	if err != nil {
+		return fmt.Errorf("failed to connect to device install service: %w", err)
+	}
+	if err := conn.SendFile(appPath); err != nil {
+		return fmt.Errorf("failed to install app: %w", err)
 	}
 	return nil
 }

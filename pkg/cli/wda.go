@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/devicelab-dev/maestro-runner/pkg/config"
 	wdadriver "github.com/devicelab-dev/maestro-runner/pkg/driver/wda"
 	"github.com/urfave/cli/v2"
 )
@@ -153,7 +154,7 @@ func clearWDACache() error {
 	fmt.Println("\nClearing WDA build cache...")
 	if err := clearWDABuildCache(); err != nil {
 		fmt.Printf("Warning: failed to clear build cache: %v\n", err)
-		fmt.Println("You may need to manually clear ~/.maestro-runner/cache/wda-builds/")
+		fmt.Printf("You may need to manually clear %s\n", filepath.Join(config.GetCacheDir(), "wda-builds"))
 	} else {
 		fmt.Println("Build cache cleared")
 	}
@@ -162,11 +163,7 @@ func clearWDACache() error {
 
 // clearWDABuildCache removes cached WDA builds so they get rebuilt with the new version.
 func clearWDABuildCache() error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	cachePath := filepath.Join(home, ".maestro-runner", "cache", "wda-builds")
+	cachePath := filepath.Join(config.GetCacheDir(), "wda-builds")
 
 	// Check if cache exists
 	if _, err := os.Stat(cachePath); os.IsNotExist(err) {

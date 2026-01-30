@@ -1698,22 +1698,15 @@ func getFirstDevice(cfg *RunConfig) string {
 }
 
 // getDriversDir returns the absolute path to the drivers subdirectory.
-// This ensures the path works correctly even in parallel goroutines.
+// Uses MAESTRO_RUNNER_HOME resolution (env var → binary parent → cwd).
 func getDriversDir(platform string) (string, error) {
-	// Get current working directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	// Build absolute path to drivers directory
-	driversPath := filepath.Join(cwd, "drivers", platform)
-
-	// Verify directory exists
+	driversPath := config.GetDriversDir(platform)
 	if _, err := os.Stat(driversPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("drivers directory not found: %s", driversPath)
+		return "", fmt.Errorf("drivers directory not found: %s\n"+
+			"  MAESTRO_RUNNER_HOME: %s\n"+
+			"  Hint: Set MAESTRO_RUNNER_HOME or place drivers/ in the maestro-runner home directory",
+			driversPath, config.GetHome())
 	}
-
 	return driversPath, nil
 }
 
