@@ -69,24 +69,29 @@ var GlobalFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:    "start-emulator",
-		Usage:   "Start emulator with AVD name (e.g., Pixel_7_API_33)",
+		Usage:   "Start Android emulator with AVD name (e.g., Pixel_7_API_33)",
 		EnvVars: []string{"MAESTRO_START_EMULATOR"},
+	},
+	&cli.StringFlag{
+		Name:    "start-simulator",
+		Usage:   "Start iOS simulator by name or UDID (e.g., 'iPhone 15 Pro')",
+		EnvVars: []string{"MAESTRO_START_SIMULATOR"},
 	},
 	&cli.BoolFlag{
 		Name:    "auto-start-emulator",
-		Usage:   "Auto-start an emulator if no devices found",
+		Usage:   "Auto-start an emulator/simulator if no devices found",
 		EnvVars: []string{"MAESTRO_AUTO_START_EMULATOR"},
 	},
 	&cli.BoolFlag{
 		Name:    "shutdown-after",
 		Value:   true,
-		Usage:   "Shutdown emulators started by maestro-runner after tests",
+		Usage:   "Shutdown emulators/simulators started by maestro-runner after tests",
 		EnvVars: []string{"MAESTRO_SHUTDOWN_AFTER"},
 	},
 	&cli.IntFlag{
 		Name:  "boot-timeout",
 		Value: 180,
-		Usage: "Emulator boot timeout in seconds",
+		Usage: "Device boot timeout in seconds",
 	},
 }
 

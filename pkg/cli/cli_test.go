@@ -11,6 +11,7 @@ import (
 	"github.com/devicelab-dev/maestro-runner/pkg/device"
 	"github.com/devicelab-dev/maestro-runner/pkg/emulator"
 	"github.com/devicelab-dev/maestro-runner/pkg/executor"
+	"github.com/devicelab-dev/maestro-runner/pkg/simulator"
 	"github.com/devicelab-dev/maestro-runner/pkg/flow"
 	"github.com/devicelab-dev/maestro-runner/pkg/report"
 	"github.com/urfave/cli/v2"
@@ -1353,7 +1354,7 @@ func TestDetermineExecutionMode_SingleDevice(t *testing.T) {
 	}
 	mgr := emulator.NewManager()
 
-	needsParallel, deviceIDs, err := determineExecutionMode(cfg, mgr)
+	needsParallel, deviceIDs, err := determineExecutionMode(cfg, mgr, simulator.NewManager())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1378,7 +1379,7 @@ func TestDetermineExecutionMode_ExplicitDevices(t *testing.T) {
 	}
 	mgr := emulator.NewManager()
 
-	needsParallel, deviceIDs, err := determineExecutionMode(cfg, mgr)
+	needsParallel, deviceIDs, err := determineExecutionMode(cfg, mgr, simulator.NewManager())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1406,7 +1407,7 @@ func TestDetermineExecutionMode_ParallelWithoutAutoStart(t *testing.T) {
 	mgr := emulator.NewManager()
 
 	// This should fail because no devices found and auto-start disabled
-	_, _, err := determineExecutionMode(cfg, mgr)
+	_, _, err := determineExecutionMode(cfg, mgr, simulator.NewManager())
 	if err == nil {
 		t.Error("expected error when parallel requested with no devices and auto-start disabled")
 	}
@@ -1425,7 +1426,7 @@ func TestDetermineExecutionMode_SingleExplicitDevice(t *testing.T) {
 	}
 	mgr := emulator.NewManager()
 
-	needsParallel, _, err := determineExecutionMode(cfg, mgr)
+	needsParallel, _, err := determineExecutionMode(cfg, mgr, simulator.NewManager())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

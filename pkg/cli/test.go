@@ -22,6 +22,7 @@ import (
 	wdadriver "github.com/devicelab-dev/maestro-runner/pkg/driver/wda"
 	"github.com/devicelab-dev/maestro-runner/pkg/emulator"
 	"github.com/devicelab-dev/maestro-runner/pkg/executor"
+	"github.com/devicelab-dev/maestro-runner/pkg/simulator"
 	"github.com/devicelab-dev/maestro-runner/pkg/flow"
 	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 	"github.com/devicelab-dev/maestro-runner/pkg/report"
@@ -283,6 +284,104 @@ func handleEmulatorStartup(cfg *RunConfig, mgr *emulator.Manager) error {
 	return nil
 }
 
+// handleDeviceStartup routes to the appropriate platform startup handler.
+// Also catches mismatched flags (e.g., --start-emulator with --platform ios).
+func handleDeviceStartup(cfg *RunConfig, emulatorMgr *emulator.Manager, simulatorMgr *simulator.Manager) error {
+	platform := strings.ToLower(cfg.Platform)
+
+	// Catch mismatched flags and suggest the right one
+	if platform == "ios" && cfg.StartEmulator != "" {
+		return fmt.Errorf("--start-emulator is for Android, but --platform is ios\n\n"+
+			"For iOS, use:\n"+
+			"  --start-simulator <name>     Start an iOS simulator (e.g., \"iPhone 15 Pro\")\n"+
+			"  --auto-start-emulator        Auto-start a simulator if none found\n\n"+
+			"Tip: If you're coming from Maestro CLI (start-device), use:\n"+
+			"  --start-simulator for iOS, --start-emulator for Android")
+	}
+	if (platform == "android" || platform == "") && cfg.StartSimulator != "" {
+		return fmt.Errorf("--start-simulator is for iOS, but --platform is %s\n\n"+
+			"For Android, use:\n"+
+			"  --start-emulator <avd>       Start an Android emulator (e.g., Pixel_7_API_33)\n"+
+			"  --auto-start-emulator        Auto-start an emulator if none found\n\n"+
+			"Tip: If you're coming from Maestro CLI (start-device), use:\n"+
+			"  --start-simulator for iOS, --start-emulator for Android", platform)
+	}
+
+	// iOS simulator startup
+	if platform == "ios" || cfg.StartSimulator != "" {
+		return handleSimulatorStartup(cfg, simulatorMgr)
+	}
+
+	// Android emulator startup (existing logic)
+	return handleEmulatorStartup(cfg, emulatorMgr)
+}
+
+// handleSimulatorStartup starts iOS simulators if requested via CLI flags.
+// Handles two cases:
+// 1. --start-simulator: Explicitly start a named or UDID simulator
+// 2. --auto-start-emulator with --platform ios: Start a simulator if none booted
+func handleSimulatorStartup(cfg *RunConfig, mgr *simulator.Manager) error {
+	timeout := bootTimeout(cfg)
+
+	// Case 1: Explicit --start-simulator flag
+	if cfg.StartSimulator != "" {
+		fmt.Printf("  %s⏳ Starting simulator: %s%s\n", color(colorCyan), cfg.StartSimulator, color(colorReset))
+		logger.Info("Starting simulator: %s (timeout: %v)", cfg.StartSimulator, timeout)
+
+		udid, err := mgr.StartByName(cfg.StartSimulator, timeout)
+		if err != nil {
+			return fmt.Errorf("failed to start simulator %s: %w", cfg.StartSimulator, err)
+		}
+
+		fmt.Printf("  %s✓ Simulator started: %s%s\n", color(colorGreen), udid, color(colorReset))
+		logger.Info("Simulator started successfully: %s", udid)
+
+		if len(cfg.Devices) == 0 {
+			cfg.Devices = []string{udid}
+			logger.Info("Added simulator to device list: %s", udid)
+		}
+
+		return nil
+	}
+
+	// Case 2: Auto-start if --auto-start-emulator and platform is iOS
+	// Skip if --parallel is set — determineExecutionMode handles parallel starts
+	if cfg.AutoStartEmulator && cfg.Parallel <= 0 {
+		// Check if we already have a booted simulator
+		udid, _ := findBootedSimulator()
+		if udid != "" {
+			logger.Info("Simulator already booted, skipping auto-start")
+			return nil
+		}
+
+		// No booted simulators — find one to start
+		logger.Info("No booted simulators found, auto-starting...")
+		fmt.Printf("  %s⏳ No simulators found, auto-starting...%s\n", color(colorCyan), color(colorReset))
+
+		shutdownSims, err := simulator.ListShutdownSimulators()
+		if err != nil || len(shutdownSims) == 0 {
+			return fmt.Errorf("no simulators available; create one with: xcrun simctl create <name> <device-type> <runtime>")
+		}
+
+		target := shutdownSims[0]
+		logger.Info("Starting simulator: %s (%s)", target.Name, target.UDID)
+		fmt.Printf("  %s⏳ Starting simulator: %s%s\n", color(colorCyan), target.Name, color(colorReset))
+
+		udid, err = mgr.Start(target.UDID, timeout)
+		if err != nil {
+			return fmt.Errorf("failed to auto-start simulator %s: %w", target.Name, err)
+		}
+
+		fmt.Printf("  %s✓ Simulator started: %s%s\n", color(colorGreen), udid, color(colorReset))
+		logger.Info("Simulator auto-started successfully: %s", udid)
+
+		cfg.Devices = []string{udid}
+		logger.Info("Added auto-started simulator to device list: %s", udid)
+	}
+
+	return nil
+}
+
 // RunConfig holds the complete test run configuration.
 type RunConfig struct {
 	// Paths
@@ -323,11 +422,12 @@ type RunConfig struct {
 	WaitForIdleTimeout int    // Wait for device idle in ms (0 = disabled, default 5000)
 	TeamID             string // Apple Development Team ID for WDA code signing
 
-	// Emulator management
+	// Emulator/Simulator management
 	StartEmulator     string // AVD name to start (e.g., Pixel_7_API_33)
-	AutoStartEmulator bool   // Auto-start an emulator if no devices found
-	ShutdownAfter     bool   // Shutdown emulators started by maestro-runner after tests
-	BootTimeout       int    // Emulator boot timeout in seconds
+	StartSimulator    string // iOS simulator name/UDID to start (e.g., "iPhone 15 Pro")
+	AutoStartEmulator bool   // Auto-start an emulator/simulator if no devices found
+	ShutdownAfter     bool   // Shutdown emulators/simulators started by maestro-runner after tests
+	BootTimeout       int    // Device boot timeout in seconds
 }
 
 func printBanner() {
@@ -487,6 +587,7 @@ func runTest(c *cli.Context) error {
 		WaitForIdleTimeout: getInt("wait-for-idle-timeout"),
 		TeamID:             getString("team-id"),
 		StartEmulator:      getString("start-emulator"),
+		StartSimulator:     getString("start-simulator"),
 		AutoStartEmulator:  getBool("auto-start-emulator"),
 		ShutdownAfter:      getBool("shutdown-after"),
 		BootTimeout:        getInt("boot-timeout"),
@@ -555,29 +656,36 @@ func executeTest(cfg *RunConfig) error {
 	logger.Info("Platform: %s", cfg.Platform)
 	logger.Info("Driver: %s", cfg.Driver)
 
-	// 2.5. Initialize emulator manager (for Android)
+	// 2.5. Initialize device lifecycle managers
 	emulatorMgr := emulator.NewManager()
+	simulatorMgr := simulator.NewManager()
 
-	// Ensure emulators are cleaned up on normal exit
+	// Ensure emulators/simulators are cleaned up on normal exit
 	defer func() {
 		if cfg.ShutdownAfter {
-			logger.Info("Shutting down emulators started by maestro-runner...")
+			logger.Info("Shutting down devices started by maestro-runner...")
 			if err := emulatorMgr.ShutdownAll(); err != nil {
 				logger.Error("Failed to shutdown emulators: %v", err)
+			}
+			if err := simulatorMgr.ShutdownAll(); err != nil {
+				logger.Error("Failed to shutdown simulators: %v", err)
 			}
 		}
 	}()
 
-	// Handle SIGINT/SIGTERM to clean up emulators on Ctrl+C or kill
+	// Handle SIGINT/SIGTERM to clean up on Ctrl+C or kill
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigCh
-		logger.Info("Received signal %v, cleaning up emulators...", sig)
-		fmt.Fprintf(os.Stderr, "\nReceived %v, shutting down emulators...\n", sig)
+		logger.Info("Received signal %v, cleaning up...", sig)
+		fmt.Fprintf(os.Stderr, "\nReceived %v, shutting down devices...\n", sig)
 		if cfg.ShutdownAfter {
 			if err := emulatorMgr.ShutdownAll(); err != nil {
 				logger.Error("Failed to shutdown emulators on signal: %v", err)
+			}
+			if err := simulatorMgr.ShutdownAll(); err != nil {
+				logger.Error("Failed to shutdown simulators on signal: %v", err)
 			}
 		}
 		os.Exit(1)
@@ -597,14 +705,14 @@ func executeTest(cfg *RunConfig) error {
 		cfg.AppID = flows[0].Config.AppID
 	}
 
-	// 3.5. Handle emulator startup (if requested)
-	if err := handleEmulatorStartup(cfg, emulatorMgr); err != nil {
-		logger.Error("Emulator startup failed: %v", err)
+	// 3.5. Handle device startup (emulator or simulator, if requested)
+	if err := handleDeviceStartup(cfg, emulatorMgr, simulatorMgr); err != nil {
+		logger.Error("Device startup failed: %v", err)
 		return err
 	}
 
 	// 4. Determine execution mode and devices
-	needsParallel, deviceIDs, err := determineExecutionMode(cfg, emulatorMgr)
+	needsParallel, deviceIDs, err := determineExecutionMode(cfg, emulatorMgr, simulatorMgr)
 	if err != nil {
 		logger.Error("Failed to determine execution mode: %v", err)
 		return err
@@ -712,7 +820,7 @@ func validateAndParseFlows(cfg *RunConfig) ([]flow.Flow, error) {
 // determineExecutionMode decides whether to run in parallel and which devices to use.
 // If --parallel N is specified with --auto-start-emulator, this will start additional
 // emulators to reach N total devices.
-func determineExecutionMode(cfg *RunConfig, emulatorMgr *emulator.Manager) (needsParallel bool, deviceIDs []string, err error) {
+func determineExecutionMode(cfg *RunConfig, emulatorMgr *emulator.Manager, simulatorMgr *simulator.Manager) (needsParallel bool, deviceIDs []string, err error) {
 	needsParallel = cfg.Parallel > 0 || len(cfg.Devices) > 1
 
 	if needsParallel {
@@ -774,6 +882,44 @@ func determineExecutionMode(cfg *RunConfig, emulatorMgr *emulator.Manager) (need
 					deviceIDs = append(deviceIDs, serial)
 					logger.Info("Emulator started: %s (%d/%d)", serial, i+1, needed)
 					fmt.Printf("  %s✓ Emulator started: %s%s\n", color(colorGreen), serial, color(colorReset))
+				}
+			} else if needed > 0 && cfg.AutoStartEmulator && cfg.Platform == "ios" {
+				// iOS simulator parallel startup
+				logger.Info("Need %d more iOS simulators for --parallel %d", needed, cfg.Parallel)
+
+				shutdownSims, err := simulator.ListShutdownSimulators()
+				if err != nil {
+					return false, nil, fmt.Errorf("failed to list simulators: %w", err)
+				}
+				if len(shutdownSims) < needed {
+					return false, nil, fmt.Errorf(
+						"--parallel %d needs %d simulator(s) but only %d shutdown simulator(s) available\n\n"+
+							"Options:\n"+
+							"  1. Create more simulators: xcrun simctl create <name> <device-type> <runtime>\n"+
+							"  2. Shutdown running simulators: xcrun simctl shutdown all",
+						cfg.Parallel, needed, len(shutdownSims))
+				}
+
+				fmt.Printf("  %s⏳ Starting %d simulator(s) for parallel execution...%s\n", color(colorCyan), needed, color(colorReset))
+				timeout := bootTimeout(cfg)
+
+				for i := 0; i < needed; i++ {
+					sim := shutdownSims[i]
+					logger.Info("Starting simulator %d/%d: %s (%s)", i+1, needed, sim.Name, sim.UDID)
+					fmt.Printf("  %s⏳ Starting simulator %d/%d: %s%s\n", color(colorCyan), i+1, needed, sim.Name, color(colorReset))
+
+					udid, err := simulatorMgr.Start(sim.UDID, timeout)
+					if err != nil {
+						logger.Error("Simulator %s failed, cleaning up", sim.Name)
+						if shutdownErr := simulatorMgr.ShutdownAll(); shutdownErr != nil {
+							logger.Error("Failed to cleanup simulators after partial start: %v", shutdownErr)
+						}
+						return false, nil, fmt.Errorf("failed to start simulator %s: %w", sim.Name, err)
+					}
+
+					deviceIDs = append(deviceIDs, udid)
+					logger.Info("Simulator started: %s (%d/%d)", sim.Name, i+1, needed)
+					fmt.Printf("  %s✓ Simulator started: %s (%s)%s\n", color(colorGreen), sim.Name, udid, color(colorReset))
 				}
 			} else if needed > 0 {
 				// Need more devices but auto-start is disabled - build helpful error
