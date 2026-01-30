@@ -4,7 +4,9 @@ package device
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -55,12 +57,41 @@ func New(serial string) (*AndroidDevice, error) {
 	return d, nil
 }
 
+// NoDevicesError is returned when no devices are connected, with helpful suggestions.
+type NoDevicesError struct {
+	Message       string
+	AvailableAVDs []string
+	Suggestions   []string
+}
+
+func (e *NoDevicesError) Error() string {
+	msg := e.Message + "\n\n"
+
+	if len(e.AvailableAVDs) > 0 {
+		msg += "Available AVDs:\n"
+		for _, avd := range e.AvailableAVDs {
+			msg += fmt.Sprintf("  - %s\n", avd)
+		}
+		msg += "\n"
+	}
+
+	if len(e.Suggestions) > 0 {
+		msg += "Options:\n"
+		for i, s := range e.Suggestions {
+			msg += fmt.Sprintf("  %d. %s\n", i+1, s)
+		}
+	}
+
+	return msg
+}
+
 // detectDeviceSerial finds the first connected device serial.
+// If no devices found, returns NoDevicesError with helpful suggestions.
 func detectDeviceSerial(adbPath string) (string, error) {
 	cmd := exec.Command(adbPath, "devices")
 	out, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("adb devices failed: %w\nHint: Is adb server running? Try: adb start-server", err)
 	}
 
 	lines := strings.Split(string(out), "\n")
@@ -74,7 +105,103 @@ func detectDeviceSerial(adbPath string) (string, error) {
 			return parts[0], nil
 		}
 	}
-	return "", fmt.Errorf("no connected devices found")
+
+	// No devices found - provide helpful error with AVD suggestions
+	return "", buildNoDevicesError()
+}
+
+// buildNoDevicesError creates a helpful error message with available AVDs and suggestions.
+func buildNoDevicesError() error {
+	noDevErr := &NoDevicesError{
+		Message: "No Android devices or emulators found",
+	}
+
+	// Try to list available AVDs (import emulator package to avoid circular dependency)
+	// We'll use exec directly here to keep dependencies simple
+	avds := listAvailableAVDs()
+	noDevErr.AvailableAVDs = avds
+
+	// Build suggestions based on available AVDs
+	noDevErr.Suggestions = []string{
+		"Connect a physical device via USB (enable USB debugging)",
+	}
+
+	if len(avds) > 0 {
+		noDevErr.Suggestions = append(noDevErr.Suggestions,
+			fmt.Sprintf("Start emulator manually: emulator -avd %s", avds[0]),
+			fmt.Sprintf("Auto-start first AVD: maestro-runner --auto-start-emulator <flow>"),
+			fmt.Sprintf("Start specific AVD: maestro-runner --start-emulator %s <flow>", avds[0]),
+		)
+
+		// If multiple AVDs, suggest parallel execution
+		if len(avds) >= 2 {
+			noDevErr.Suggestions = append(noDevErr.Suggestions,
+				fmt.Sprintf("Run in parallel on %d emulators: maestro-runner --parallel %d --auto-start-emulator <flows>", len(avds), len(avds)),
+			)
+		}
+	} else {
+		noDevErr.Suggestions = append(noDevErr.Suggestions,
+			"Create an AVD: avdmanager create avd --name <name> --package <system-image>",
+			"Or create via Android Studio: Tools → Device Manager → Create Device",
+		)
+	}
+
+	return noDevErr
+}
+
+// listAvailableAVDs returns list of AVD names using emulator binary.
+// Returns empty slice if emulator not found or command fails.
+func listAvailableAVDs() []string {
+	// Try to find emulator binary
+	emulatorPath := findEmulatorBinary()
+	if emulatorPath == "" {
+		return nil
+	}
+
+	// Run emulator -list-avds
+	cmd := exec.Command(emulatorPath, "-list-avds")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+
+	// Parse output (one AVD per line)
+	var avds []string
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			avds = append(avds, line)
+		}
+	}
+
+	return avds
+}
+
+// findEmulatorBinary locates the emulator binary, returns empty string if not found.
+func findEmulatorBinary() string {
+	// Try ANDROID_HOME/emulator/emulator
+	androidHome := os.Getenv("ANDROID_HOME")
+	if androidHome == "" {
+		androidHome = os.Getenv("ANDROID_SDK_ROOT")
+	}
+	if androidHome == "" {
+		androidHome = os.Getenv("ANDROID_SDK_HOME")
+	}
+
+	if androidHome != "" {
+		emulatorPath := filepath.Join(androidHome, "emulator", "emulator")
+		if _, err := os.Stat(emulatorPath); err == nil {
+			return emulatorPath
+		}
+	}
+
+	// Try PATH
+	if path, err := exec.LookPath("emulator"); err == nil {
+		return path
+	}
+
+	return ""
 }
 
 // Serial returns the device serial number.

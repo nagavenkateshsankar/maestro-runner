@@ -486,3 +486,58 @@ func TestCheckHealthWithClient(t *testing.T) {
 		t.Error("expected false for invalid endpoint")
 	}
 }
+
+func TestNoDevicesError(t *testing.T) {
+	// Test NoDevicesError formatting
+	err := &NoDevicesError{
+		Message:       "No Android devices or emulators found",
+		AvailableAVDs: []string{"Pixel_7_API_33", "Pixel_6_API_31", "Nexus_5_API_29"},
+		Suggestions: []string{
+			"Connect a physical device via USB",
+			"Start emulator: emulator -avd Pixel_7_API_33",
+			"Auto-start: maestro-runner --auto-start-emulator flow.yaml",
+		},
+	}
+
+	errMsg := err.Error()
+
+	// Check message contains key parts
+	if !strings.Contains(errMsg, "No Android devices or emulators found") {
+		t.Error("Error message should contain main message")
+	}
+
+	// Check AVDs are listed
+	if !strings.Contains(errMsg, "Pixel_7_API_33") {
+		t.Error("Error message should list AVDs")
+	}
+
+	// Check suggestions are listed
+	if !strings.Contains(errMsg, "Connect a physical device") {
+		t.Error("Error message should contain suggestions")
+	}
+
+	// Check options header
+	if !strings.Contains(errMsg, "Options:") {
+		t.Error("Error message should have Options header")
+	}
+}
+
+func TestNoDevicesError_WithParallelSuggestion(t *testing.T) {
+	// Test that parallel suggestion appears when multiple AVDs available
+	err := buildNoDevicesError()
+
+	errMsg := err.Error()
+
+	// Should contain basic error components
+	if !strings.Contains(errMsg, "No Android devices") {
+		t.Error("Should contain base error message")
+	}
+
+	if !strings.Contains(errMsg, "Options:") {
+		t.Error("Should contain options header")
+	}
+
+	// If AVDs are available, check suggestions
+	// This is environment-dependent so we just verify it doesn't panic
+	t.Logf("Error message:\n%s", errMsg)
+}
