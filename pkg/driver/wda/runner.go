@@ -86,8 +86,12 @@ func (r *Runner) Build(ctx context.Context) error {
 		return fmt.Errorf("failed to get build cache directory: %w", err)
 	}
 
-	os.MkdirAll(r.buildDir, 0755)
-	os.MkdirAll(filepath.Join(r.buildDir, "logs"), 0755)
+	if err := os.MkdirAll(r.buildDir, 0755); err != nil {
+		return fmt.Errorf("failed to create build directory: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Join(r.buildDir, "logs"), 0755); err != nil {
+		return fmt.Errorf("failed to create logs directory: %w", err)
+	}
 
 	// Check if already built by looking for xctestrun file
 	if _, err := r.findXctestrun(); err == nil {

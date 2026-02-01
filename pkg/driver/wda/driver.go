@@ -213,8 +213,6 @@ func (d *Driver) findElementWithContext(ctx context.Context, sel flow.Selector) 
 			// Try WDA strategies first
 			if info, err := d.findElementByWDA(sel); err == nil {
 				return info, nil
-			} else {
-				lastErr = err
 			}
 
 			// Fallback to page source parsing

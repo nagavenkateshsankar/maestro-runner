@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 )
 
 // IndexWriter provides thread-safe updates to the report index.
@@ -138,13 +140,17 @@ func (w *IndexWriter) flushLocked() {
 	}
 
 	// Atomic write JSON
-	atomicWriteJSON(w.path, w.index)
+	if err := atomicWriteJSON(w.path, w.index); err != nil {
+		logger.Warn("failed to write index to %s: %v", w.path, err)
+	}
 
 	// Regenerate HTML for live file:// viewing
-	GenerateHTML(w.outputDir, HTMLConfig{
+	if err := GenerateHTML(w.outputDir, HTMLConfig{
 		Title:     "Test Report",
 		ReportDir: w.outputDir,
-	})
+	}); err != nil {
+		logger.Warn("failed to regenerate HTML report: %v", err)
+	}
 }
 
 // applyUpdate applies a FlowUpdate to the index.

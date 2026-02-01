@@ -16,27 +16,35 @@ func (e *Engine) httpModule() *goja.Object {
 	obj := e.runtime.NewObject()
 
 	// http.get(url, [options])
-	obj.Set("get", func(call goja.FunctionCall) goja.Value {
+	if err := obj.Set("get", func(call goja.FunctionCall) goja.Value {
 		return e.doHTTPRequest("GET", call)
-	})
+	}); err != nil {
+		panic(e.runtime.NewTypeError(fmt.Sprintf("failed to set http.get: %v", err)))
+	}
 
 	// http.post(url, [options])
-	obj.Set("post", func(call goja.FunctionCall) goja.Value {
+	if err := obj.Set("post", func(call goja.FunctionCall) goja.Value {
 		return e.doHTTPRequest("POST", call)
-	})
+	}); err != nil {
+		panic(e.runtime.NewTypeError(fmt.Sprintf("failed to set http.post: %v", err)))
+	}
 
 	// http.put(url, [options])
-	obj.Set("put", func(call goja.FunctionCall) goja.Value {
+	if err := obj.Set("put", func(call goja.FunctionCall) goja.Value {
 		return e.doHTTPRequest("PUT", call)
-	})
+	}); err != nil {
+		panic(e.runtime.NewTypeError(fmt.Sprintf("failed to set http.put: %v", err)))
+	}
 
 	// http.delete(url, [options])
-	obj.Set("delete", func(call goja.FunctionCall) goja.Value {
+	if err := obj.Set("delete", func(call goja.FunctionCall) goja.Value {
 		return e.doHTTPRequest("DELETE", call)
-	})
+	}); err != nil {
+		panic(e.runtime.NewTypeError(fmt.Sprintf("failed to set http.delete: %v", err)))
+	}
 
 	// http.request(method, url, [options])
-	obj.Set("request", func(call goja.FunctionCall) goja.Value {
+	if err := obj.Set("request", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 2 {
 			panic(e.runtime.NewTypeError("http.request requires method and url"))
 		}
@@ -48,7 +56,9 @@ func (e *Engine) httpModule() *goja.Object {
 			Arguments: newArgs,
 		}
 		return e.doHTTPRequest(method, newCall)
-	})
+	}); err != nil {
+		panic(e.runtime.NewTypeError(fmt.Sprintf("failed to set http.request: %v", err)))
+	}
 
 	return obj
 }
@@ -165,16 +175,29 @@ func (e *Engine) doHTTPRequest(method string, call goja.FunctionCall) goja.Value
 
 	// Convert to JS object
 	responseObj := e.runtime.NewObject()
-	responseObj.Set("status", response.Status)
-	responseObj.Set("body", response.Body)
-	responseObj.Set("headers", response.Headers)
-	responseObj.Set("ok", response.Ok)
+	for _, kv := range []struct {
+		key string
+		val interface{}
+	}{
+		{"status", response.Status},
+		{"body", response.Body},
+		{"headers", response.Headers},
+		{"ok", response.Ok},
+	} {
+		if err := responseObj.Set(kv.key, kv.val); err != nil {
+			panic(e.runtime.NewTypeError(fmt.Sprintf("failed to set response.%s: %v", kv.key, err)))
+		}
+	}
 
 	// Add json as parsed data (or null if not JSON)
 	if response.JSON != nil {
-		responseObj.Set("json", response.JSON)
+		if err := responseObj.Set("json", response.JSON); err != nil {
+			panic(e.runtime.NewTypeError(fmt.Sprintf("failed to set response.json: %v", err)))
+		}
 	} else {
-		responseObj.Set("json", goja.Null())
+		if err := responseObj.Set("json", goja.Null()); err != nil {
+			panic(e.runtime.NewTypeError(fmt.Sprintf("failed to set response.json: %v", err)))
+		}
 	}
 
 	return responseObj

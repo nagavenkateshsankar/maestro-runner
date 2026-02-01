@@ -2,7 +2,6 @@ package appium
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,7 +20,7 @@ func mockAppiumServerForDriver() *httptest.Server {
 
 		// Session creation
 		if strings.HasSuffix(path, "/session") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"sessionId": "test-session",
 					"capabilities": map[string]interface{}{
@@ -38,7 +37,7 @@ func mockAppiumServerForDriver() *httptest.Server {
 
 		// Page source (Android format)
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <hierarchy rotation="0">
   <android.widget.FrameLayout bounds="[0,0][1080,2340]">
@@ -54,7 +53,7 @@ func mockAppiumServerForDriver() *httptest.Server {
 
 		// Window/rect
 		if strings.Contains(path, "/window/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 2340.0, "x": 0.0, "y": 0.0},
 			})
 			return
@@ -62,7 +61,7 @@ func mockAppiumServerForDriver() *httptest.Server {
 
 		// Screenshot
 		if strings.Contains(path, "/screenshot") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": base64.StdEncoding.EncodeToString([]byte("fake-png-data")),
 			})
 			return
@@ -71,16 +70,16 @@ func mockAppiumServerForDriver() *httptest.Server {
 		// Orientation
 		if strings.Contains(path, "/orientation") {
 			if r.Method == "GET" {
-				json.NewEncoder(w).Encode(map[string]interface{}{"value": "PORTRAIT"})
+				writeJSON(w,map[string]interface{}{"value": "PORTRAIT"})
 			} else {
-				json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+				writeJSON(w,map[string]interface{}{"value": nil})
 			}
 			return
 		}
 
 		// Element finding
 		if strings.HasSuffix(path, "/element") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"element-6066-11e4-a52e-4f735466cecf": "elem-123",
 				},
@@ -90,7 +89,7 @@ func mockAppiumServerForDriver() *httptest.Server {
 
 		// Active element
 		if strings.Contains(path, "/element/active") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"element-6066-11e4-a52e-4f735466cecf": "active-elem",
 				},
@@ -100,7 +99,7 @@ func mockAppiumServerForDriver() *httptest.Server {
 
 		// Element rect
 		if strings.Contains(path, "/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"x": 100.0, "y": 200.0, "width": 300.0, "height": 80.0},
 			})
 			return
@@ -108,32 +107,32 @@ func mockAppiumServerForDriver() *httptest.Server {
 
 		// Element text
 		if strings.Contains(path, "/text") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": "Login"})
+			writeJSON(w,map[string]interface{}{"value": "Login"})
 			return
 		}
 
 		// Element displayed
 		if strings.Contains(path, "/displayed") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": true})
+			writeJSON(w,map[string]interface{}{"value": true})
 			return
 		}
 
 		// Element enabled
 		if strings.Contains(path, "/enabled") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": true})
+			writeJSON(w,map[string]interface{}{"value": true})
 			return
 		}
 
 		// Clipboard
 		if strings.Contains(path, "/appium/device/get_clipboard") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": base64.StdEncoding.EncodeToString([]byte("clipboard content")),
 			})
 			return
 		}
 
 		// Default success response
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 }
 
@@ -158,7 +157,7 @@ func createTestAppiumDriver(server *httptest.Server) *Driver {
 func TestNewDriverAppium(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w,map[string]interface{}{
 			"value": map[string]interface{}{
 				"sessionId": "test-session",
 				"capabilities": map[string]interface{}{
@@ -403,12 +402,12 @@ func TestExecuteAppiumAssertNotVisible(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": `<hierarchy><android.widget.FrameLayout/></hierarchy>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -892,7 +891,7 @@ func mockAppiumServerForRelativeElements() *httptest.Server {
 		path := r.URL.Path
 
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <hierarchy rotation="0">
   <android.widget.FrameLayout bounds="[0,0][1080,2340]">
@@ -910,13 +909,13 @@ func mockAppiumServerForRelativeElements() *httptest.Server {
 		}
 
 		if strings.Contains(path, "/window/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 2340.0, "x": 0.0, "y": 0.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 }
 
@@ -1160,7 +1159,7 @@ func TestAppiumEraseTextWithActiveElement(t *testing.T) {
 
 		// Active element
 		if strings.Contains(path, "/element/active") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"element-6066-11e4-a52e-4f735466cecf": "active-elem",
 				},
@@ -1170,11 +1169,11 @@ func TestAppiumEraseTextWithActiveElement(t *testing.T) {
 
 		// Clear element
 		if strings.Contains(path, "/clear") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+			writeJSON(w,map[string]interface{}{"value": nil})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1196,17 +1195,17 @@ func TestAppiumEraseTextWithDeleteKeys(t *testing.T) {
 		// Active element fails
 		if strings.Contains(path, "/element/active") {
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+			writeJSON(w,map[string]interface{}{"value": nil})
 			return
 		}
 
 		// Key press
 		if strings.Contains(path, "/appium/device/press_keycode") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+			writeJSON(w,map[string]interface{}{"value": nil})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1223,7 +1222,7 @@ func TestAppiumEraseTextWithDeleteKeys(t *testing.T) {
 func TestAppiumEraseTextDefaultCharacters(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1243,13 +1242,13 @@ func TestExecuteMobileSuccess(t *testing.T) {
 		path := r.URL.Path
 
 		if strings.Contains(path, "/appium/execute_mobile") || strings.Contains(path, "/execute/sync") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"success": true},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1271,7 +1270,9 @@ func TestExecuteMobileError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// Return malformed JSON to trigger parse error
-		w.Write([]byte("not valid json"))
+		if _, err := w.Write([]byte("not valid json")); err != nil {
+			return
+		}
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1376,7 +1377,7 @@ func TestAppiumScrollUntilVisibleSuccess(t *testing.T) {
 		if strings.HasSuffix(path, "/source") {
 			callCount++
 			if callCount >= 2 {
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				writeJSON(w,map[string]interface{}{
 					"value": `<?xml version="1.0" encoding="UTF-8"?>
 <hierarchy rotation="0">
   <android.widget.FrameLayout bounds="[0,0][1080,2340]">
@@ -1385,7 +1386,7 @@ func TestAppiumScrollUntilVisibleSuccess(t *testing.T) {
 </hierarchy>`,
 				})
 			} else {
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				writeJSON(w,map[string]interface{}{
 					"value": `<?xml version="1.0" encoding="UTF-8"?>
 <hierarchy rotation="0">
   <android.widget.FrameLayout bounds="[0,0][1080,2340]">
@@ -1398,13 +1399,13 @@ func TestAppiumScrollUntilVisibleSuccess(t *testing.T) {
 		}
 
 		if strings.Contains(path, "/window/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 2340.0, "x": 0.0, "y": 0.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1428,7 +1429,7 @@ func TestAppiumScrollUntilVisibleNotFound(t *testing.T) {
 		path := r.URL.Path
 
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <hierarchy rotation="0">
   <android.widget.FrameLayout bounds="[0,0][1080,2340]">
@@ -1440,13 +1441,13 @@ func TestAppiumScrollUntilVisibleNotFound(t *testing.T) {
 		}
 
 		if strings.Contains(path, "/window/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 2340.0, "x": 0.0, "y": 0.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1539,7 +1540,7 @@ func TestStopAppError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/appium/device/terminate_app") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "terminate failed",
 					"message": "Failed to terminate app",
@@ -1547,7 +1548,7 @@ func TestStopAppError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1582,7 +1583,7 @@ func TestClearStateError(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// ClearAppData uses /execute/sync with mobile: clearApp
 		if strings.Contains(r.URL.Path, "/execute/sync") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "clear failed",
 					"message": "Failed to clear app data",
@@ -1590,7 +1591,7 @@ func TestClearStateError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1637,7 +1638,7 @@ func TestBackError(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// Back uses PressKeyCode(4) which posts to /appium/device/press_keycode
 		if strings.Contains(r.URL.Path, "/press_keycode") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "back failed",
 					"message": "Failed to press back",
@@ -1645,7 +1646,7 @@ func TestBackError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1663,7 +1664,7 @@ func TestHideKeyboardError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/hide_keyboard") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "hide keyboard failed",
 					"message": "Keyboard not visible",
@@ -1671,7 +1672,7 @@ func TestHideKeyboardError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1690,7 +1691,7 @@ func TestOpenLinkError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/url") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "open link failed",
 					"message": "Failed to open URL",
@@ -1698,7 +1699,7 @@ func TestOpenLinkError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1716,7 +1717,7 @@ func TestPasteTextError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/appium/device/get_clipboard") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "clipboard failed",
 					"message": "Failed to get clipboard",
@@ -1724,7 +1725,7 @@ func TestPasteTextError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1742,12 +1743,12 @@ func TestCopyTextFromError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": `<hierarchy><android.widget.FrameLayout bounds="[0,0][1080,2400]"/></hierarchy>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 
@@ -1775,12 +1776,12 @@ func TestCopyTextFromEmptyText(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": `<hierarchy><android.widget.Button bounds="[0,0][100,50]" resource-id="emptyBtn"/></hierarchy>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 
@@ -1809,7 +1810,7 @@ func TestSetOrientationError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/orientation") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "orientation failed",
 					"message": "Failed to set orientation",
@@ -1817,7 +1818,7 @@ func TestSetOrientationError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1835,12 +1836,12 @@ func TestAssertNotVisibleWhenVisible(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": `<hierarchy><android.widget.Button text="Login" bounds="[0,0][100,50]"/></hierarchy>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 
@@ -1885,7 +1886,7 @@ func TestLaunchAppError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/appium/device/activate_app") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "activate failed",
 					"message": "Failed to launch app",
@@ -1893,7 +1894,7 @@ func TestLaunchAppError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -1911,30 +1912,30 @@ func TestFindElementDirectID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/element") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"ELEMENT": "elem-123"},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"x": 50.0, "y": 100.0, "width": 200.0, "height": 50.0},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/text") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": "Login"})
+			writeJSON(w,map[string]interface{}{"value": "Login"})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/displayed") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": true})
+			writeJSON(w,map[string]interface{}{"value": true})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/enabled") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": true})
+			writeJSON(w,map[string]interface{}{"value": true})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 
@@ -1961,7 +1962,7 @@ func TestNewDriverWithBundleID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/session") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"sessionId": "test-session-123",
 					"capabilities": map[string]interface{}{
@@ -1972,12 +1973,12 @@ func TestNewDriverWithBundleID(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{"width": 390.0, "height": 844.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 
@@ -2022,7 +2023,7 @@ func TestScreenshotError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/screenshot") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "screenshot failed",
 					"message": "Failed to take screenshot",
@@ -2030,7 +2031,7 @@ func TestScreenshotError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -2047,12 +2048,12 @@ func TestScreenshotInvalidResponse(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/screenshot") {
 			// Return non-string value
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": 12345,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)
@@ -2182,7 +2183,7 @@ func TestInputTextError(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// SendKeys tries /actions first, then /appium/element/active/value as fallback
 		if strings.Contains(r.URL.Path, "/actions") || strings.Contains(r.URL.Path, "/active/value") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w,map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "input failed",
 					"message": "Failed to send keys",
@@ -2190,7 +2191,7 @@ func TestInputTextError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"value": nil})
+		writeJSON(w,map[string]interface{}{"value": nil})
 	}))
 	defer server.Close()
 	driver := createTestAppiumDriver(server)

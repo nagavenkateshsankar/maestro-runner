@@ -31,7 +31,9 @@ func createTestFlowWriter(t *testing.T) (*FlowWriter, *IndexWriter, string) {
 	}
 
 	// Create flows directory
-	os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755); err != nil {
+		t.Fatalf("failed to create flows directory: %v", err)
+	}
 
 	flowWriter := NewFlowWriter(flowDetail, tmpDir, indexWriter)
 

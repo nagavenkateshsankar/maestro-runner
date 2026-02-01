@@ -118,10 +118,12 @@ func (c *Client) Connect(capabilities map[string]interface{}) error {
 		if androidAppPackage != "" {
 			for _, perm := range getAllPermissions() {
 				// Ignore errors - permission might not be declared by the app
-				c.ExecuteMobile("shell", map[string]interface{}{
+				if _, err := c.ExecuteMobile("shell", map[string]interface{}{
 					"command": "pm",
 					"args":    []string{"grant", androidAppPackage, perm},
-				})
+				}); err != nil {
+					logger.Debug("grant %s failed (expected if not declared): %v", perm, err)
+				}
 			}
 			if androidAppActivity != "" {
 				if _, err := c.ExecuteMobile("startActivity", map[string]interface{}{

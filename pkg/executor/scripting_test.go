@@ -326,7 +326,9 @@ func TestScriptEngine_GetOutput(t *testing.T) {
 	se := NewScriptEngine()
 	defer se.Close()
 
-	se.RunScript("output.key1 = 'value1'; output.key2 = 123", nil)
+	if err := se.RunScript("output.key1 = 'value1'; output.key2 = 123", nil); err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
 
 	out := se.GetOutput()
 	if out["key1"] != "value1" {

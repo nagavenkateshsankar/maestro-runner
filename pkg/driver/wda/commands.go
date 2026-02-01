@@ -307,10 +307,8 @@ func (d *Driver) eraseText(step *flow.EraseTextStep) *core.CommandResult {
 
 func (d *Driver) hideKeyboard(step *flow.HideKeyboardStep) *core.CommandResult {
 	// iOS: tap outside to dismiss keyboard, or press Done button
-	// Try pressing the "return" key
-	if err := d.client.SendKeys("\n"); err != nil {
-		// Ignore error - keyboard might not be visible
-	}
+	// Try pressing the "return" key (ignore error - keyboard might not be visible)
+	_ = d.client.SendKeys("\n")
 
 	return successResult("Attempted to hide keyboard", nil)
 }

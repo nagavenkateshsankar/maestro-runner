@@ -3,7 +3,6 @@ package wda
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,7 +21,7 @@ func mockWDAServerForDriver() *httptest.Server {
 
 		// Session endpoints
 		if strings.HasSuffix(path, "/session") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"sessionId": "test-session"},
 			})
 			return
@@ -30,7 +29,7 @@ func mockWDAServerForDriver() *httptest.Server {
 
 		// Source endpoint
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -45,7 +44,7 @@ func mockWDAServerForDriver() *httptest.Server {
 
 		// Window size
 		if strings.Contains(path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 390.0, "height": 844.0},
 			})
 			return
@@ -53,7 +52,7 @@ func mockWDAServerForDriver() *httptest.Server {
 
 		// Screenshot
 		if strings.Contains(path, "/screenshot") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": base64.StdEncoding.EncodeToString([]byte("fake-png-data")),
 			})
 			return
@@ -62,16 +61,16 @@ func mockWDAServerForDriver() *httptest.Server {
 		// Orientation
 		if strings.Contains(path, "/orientation") {
 			if r.Method == "GET" {
-				json.NewEncoder(w).Encode(map[string]interface{}{"value": "PORTRAIT"})
+				jsonResponse(w, map[string]interface{}{"value": "PORTRAIT"})
 			} else {
-				json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+				jsonResponse(w, map[string]interface{}{"status": 0})
 			}
 			return
 		}
 
 		// Element finding
 		if strings.HasSuffix(path, "/element") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"ELEMENT": "elem-123"},
 			})
 			return
@@ -79,7 +78,7 @@ func mockWDAServerForDriver() *httptest.Server {
 
 		// Element active
 		if strings.Contains(path, "/element/active") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"ELEMENT": "active-elem"},
 			})
 			return
@@ -87,7 +86,7 @@ func mockWDAServerForDriver() *httptest.Server {
 
 		// Element rect
 		if strings.Contains(path, "/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"x": 50.0, "y": 100.0, "width": 290.0, "height": 50.0},
 			})
 			return
@@ -95,18 +94,18 @@ func mockWDAServerForDriver() *httptest.Server {
 
 		// Element text
 		if strings.Contains(path, "/text") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": "Login"})
+			jsonResponse(w, map[string]interface{}{"value": "Login"})
 			return
 		}
 
 		// Element displayed
 		if strings.Contains(path, "/displayed") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"value": true})
+			jsonResponse(w, map[string]interface{}{"value": true})
 			return
 		}
 
 		// Default success response for actions
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 }
 
@@ -281,14 +280,14 @@ func TestExecuteAssertNotVisible(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/source") {
 			// Return empty source so element is not found
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<AppiumAUT><XCUIElementTypeApplication/></AppiumAUT>`,
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/element") {
 			// Element not found
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "no such element",
 					"message": "not found",
@@ -296,7 +295,7 @@ func TestExecuteAssertNotVisible(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -1035,7 +1034,7 @@ func mockWDAServerWithScrollElements(foundAfterScrolls int) *httptest.Server {
 		// Track swipe/drag calls (used by scroll)
 		if strings.Contains(path, "/wda/dragfromtoforduration") && r.Method == "POST" {
 			scrollCount++
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
 
@@ -1044,7 +1043,7 @@ func mockWDAServerWithScrollElements(foundAfterScrolls int) *httptest.Server {
 			// First source call is before any scroll, subsequent calls happen after scroll
 			effectiveScrolls := scrollCount
 			if effectiveScrolls >= foundAfterScrolls {
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				jsonResponse(w, map[string]interface{}{
 					"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1053,7 +1052,7 @@ func mockWDAServerWithScrollElements(foundAfterScrolls int) *httptest.Server {
 </AppiumAUT>`,
 				})
 			} else {
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				jsonResponse(w, map[string]interface{}{
 					"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1067,13 +1066,13 @@ func mockWDAServerWithScrollElements(foundAfterScrolls int) *httptest.Server {
 
 		// Window size
 		if strings.Contains(path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 390.0, "height": 844.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 }
 
@@ -1140,7 +1139,7 @@ func mockWDAServerForWaitUntil(visibleAfterMs int) *httptest.Server {
 		if strings.HasSuffix(path, "/source") {
 			elapsed := time.Since(startTime).Milliseconds()
 			if int(elapsed) >= visibleAfterMs {
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				jsonResponse(w, map[string]interface{}{
 					"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1149,7 +1148,7 @@ func mockWDAServerForWaitUntil(visibleAfterMs int) *httptest.Server {
 </AppiumAUT>`,
 				})
 			} else {
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				jsonResponse(w, map[string]interface{}{
 					"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1161,13 +1160,13 @@ func mockWDAServerForWaitUntil(visibleAfterMs int) *httptest.Server {
 		}
 
 		if strings.Contains(path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 390.0, "height": 844.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 }
 
@@ -1216,7 +1215,7 @@ func TestWaitUntilNotVisibleSuccess(t *testing.T) {
 
 		if strings.HasSuffix(path, "/source") {
 			// Element not present
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1227,13 +1226,13 @@ func TestWaitUntilNotVisibleSuccess(t *testing.T) {
 		}
 
 		if strings.Contains(path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 390.0, "height": 844.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -1275,7 +1274,7 @@ func mockWDAServerForRelativeElements() *httptest.Server {
 		path := r.URL.Path
 
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1293,13 +1292,13 @@ func mockWDAServerForRelativeElements() *httptest.Server {
 		}
 
 		if strings.Contains(path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 390.0, "height": 844.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 }
 
@@ -1494,7 +1493,7 @@ func TestEraseTextWithActiveElement(t *testing.T) {
 
 		// Active element
 		if strings.Contains(path, "/element/active") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"ELEMENT": "active-elem"},
 			})
 			return
@@ -1502,11 +1501,11 @@ func TestEraseTextWithActiveElement(t *testing.T) {
 
 		// Element clear
 		if strings.Contains(path, "/clear") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -1528,17 +1527,17 @@ func TestEraseTextWithDeleteKeys(t *testing.T) {
 		// Active element fails
 		if strings.Contains(path, "/element/active") {
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 1, "message": "No active element"})
+			jsonResponse(w, map[string]interface{}{"status": 1, "message": "No active element"})
 			return
 		}
 
 		// Keys endpoint
 		if strings.Contains(path, "/keys") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -1555,7 +1554,7 @@ func TestEraseTextWithDeleteKeys(t *testing.T) {
 func TestEraseTextDefaultCharacters(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -1579,7 +1578,7 @@ func TestTapOnWithRetry(t *testing.T) {
 			callCount++
 			if callCount >= 2 {
 				// Return element on second call
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				jsonResponse(w, map[string]interface{}{
 					"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1588,7 +1587,7 @@ func TestTapOnWithRetry(t *testing.T) {
 </AppiumAUT>`,
 				})
 			} else {
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				jsonResponse(w, map[string]interface{}{
 					"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1600,13 +1599,13 @@ func TestTapOnWithRetry(t *testing.T) {
 		}
 
 		if strings.Contains(path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 390.0, "height": 844.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -1629,7 +1628,7 @@ func TestTapOnElementNotFound(t *testing.T) {
 		path := r.URL.Path
 
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1640,13 +1639,13 @@ func TestTapOnElementNotFound(t *testing.T) {
 		}
 
 		if strings.Contains(path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 390.0, "height": 844.0},
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -1704,7 +1703,7 @@ func TestFindElementQuickNotFound(t *testing.T) {
 		path := r.URL.Path
 
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1714,7 +1713,7 @@ func TestFindElementQuickNotFound(t *testing.T) {
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -1747,7 +1746,7 @@ func TestFindElementByPageSourceOnceNotFound(t *testing.T) {
 		path := r.URL.Path
 
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -1757,7 +1756,7 @@ func TestFindElementByPageSourceOnceNotFound(t *testing.T) {
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2301,7 +2300,7 @@ func TestInputTextSelectorNotFound(t *testing.T) {
 
 		// Source endpoint - return empty page
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -2312,7 +2311,7 @@ func TestInputTextSelectorNotFound(t *testing.T) {
 		}
 
 		// Default
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -2345,7 +2344,7 @@ func TestInputTextWithSelectorNoElementID(t *testing.T) {
 
 		// Source endpoint
 		if strings.HasSuffix(path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -2358,18 +2357,18 @@ func TestInputTextWithSelectorNoElementID(t *testing.T) {
 
 		// Tap endpoint
 		if strings.Contains(path, "/wda/tap") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
 
 		// Send keys endpoint
 		if strings.Contains(path, "/wda/keys") {
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
 
 		// Default
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2410,14 +2409,14 @@ func TestLaunchAppWithoutSession(t *testing.T) {
 
 		// Create session endpoint
 		if strings.HasSuffix(path, "/session") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"sessionId": "new-session"},
 			})
 			return
 		}
 
 		// Default
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -2446,7 +2445,7 @@ func TestLaunchAppCreateSessionFails(t *testing.T) {
 
 		// Create session endpoint - return WDA error format
 		if strings.HasSuffix(path, "/session") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "session not created",
 					"message": "Session creation failed",
@@ -2455,7 +2454,7 @@ func TestLaunchAppCreateSessionFails(t *testing.T) {
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -2484,7 +2483,7 @@ func TestLaunchAppExistingSessionFails(t *testing.T) {
 
 		// Launch app endpoint - return WDA error format
 		if strings.Contains(path, "/wda/apps/launch") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "app launch failed",
 					"message": "Failed to launch app",
@@ -2493,7 +2492,7 @@ func TestLaunchAppExistingSessionFails(t *testing.T) {
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2515,11 +2514,11 @@ func TestFindElementQuickWithError(t *testing.T) {
 		// Source endpoint - return error
 		if strings.HasSuffix(path, "/source") {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]interface{}{"error": "Source failed"})
+			jsonResponse(w, map[string]interface{}{"error": "Source failed"})
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2566,7 +2565,7 @@ func TestStopAppFails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/wda/apps/terminate") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "terminate failed",
 					"message": "Failed to terminate app",
@@ -2574,7 +2573,7 @@ func TestStopAppFails(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2620,7 +2619,7 @@ func TestDoubleTapOnNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -2629,7 +2628,7 @@ func TestDoubleTapOnNotFound(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -2653,7 +2652,7 @@ func TestLongPressOnNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -2662,7 +2661,7 @@ func TestLongPressOnNotFound(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -2687,7 +2686,7 @@ func TestCopyTextFromEmptyText(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
 			// Element with no label (text) - only name for matching
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -2697,7 +2696,7 @@ func TestCopyTextFromEmptyText(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2723,7 +2722,7 @@ func TestTakeScreenshotError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/screenshot") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "screenshot failed",
 					"message": "Failed to capture screenshot",
@@ -2731,7 +2730,7 @@ func TestTakeScreenshotError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2749,7 +2748,7 @@ func TestOpenLinkError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/url") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "open url failed",
 					"message": "Failed to open URL",
@@ -2757,7 +2756,7 @@ func TestOpenLinkError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2776,7 +2775,7 @@ func TestOpenBrowserError(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// openBrowser uses DeepLink which calls /url endpoint
 		if strings.HasSuffix(r.URL.Path, "/url") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "open url failed",
 					"message": "Failed to open URL",
@@ -2784,7 +2783,7 @@ func TestOpenBrowserError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2802,7 +2801,7 @@ func TestSetOrientationError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/orientation") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "orientation failed",
 					"message": "Failed to set orientation",
@@ -2810,7 +2809,7 @@ func TestSetOrientationError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2828,7 +2827,7 @@ func TestSwipeWithCoordinateError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/wda/dragfromtoforduration") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "swipe failed",
 					"message": "Failed to perform swipe",
@@ -2836,7 +2835,7 @@ func TestSwipeWithCoordinateError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -2854,7 +2853,7 @@ func TestAssertVisibleNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
   <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="TestApp" enabled="true" visible="true" x="0" y="0" width="390" height="844">
@@ -2863,7 +2862,7 @@ func TestAssertVisibleNotFound(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -2954,7 +2953,7 @@ func TestClientFindElements(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/elements") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": []interface{}{
 					map[string]interface{}{"ELEMENT": "elem-1"},
 					map[string]interface{}{"ELEMENT": "elem-2"},
@@ -2962,7 +2961,7 @@ func TestClientFindElements(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -2986,12 +2985,12 @@ func TestClientFindElementsEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/elements") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": []interface{}{},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3015,7 +3014,7 @@ func TestClientElementTextError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/text") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "text failed",
 					"message": "Failed to get text",
@@ -3023,7 +3022,7 @@ func TestClientElementTextError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3044,7 +3043,7 @@ func TestClientElementDisplayedError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/displayed") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "displayed failed",
 					"message": "Failed to check displayed",
@@ -3052,7 +3051,7 @@ func TestClientElementDisplayedError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3101,7 +3100,7 @@ func TestCopyTextFromElementHasText(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeButton name="testBtn" label="CopyMe" x="10" y="20" width="100" height="50"/>
@@ -3109,7 +3108,7 @@ func TestCopyTextFromElementHasText(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3217,7 +3216,7 @@ func TestHierarchyError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "source failed",
 					"message": "Failed to get source",
@@ -3225,7 +3224,7 @@ func TestHierarchyError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3241,7 +3240,7 @@ func TestSourceError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "source failed",
 					"message": "Failed to get source",
@@ -3249,7 +3248,7 @@ func TestSourceError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3270,7 +3269,7 @@ func TestGetOrientationError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/orientation") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "orientation failed",
 					"message": "Failed to get orientation",
@@ -3278,7 +3277,7 @@ func TestGetOrientationError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3299,7 +3298,7 @@ func TestGetActiveElementError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/element/active") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "active element failed",
 					"message": "No active element",
@@ -3307,7 +3306,7 @@ func TestGetActiveElementError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3328,7 +3327,7 @@ func TestTapOnError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeButton name="btn" label="Button" x="10" y="20" width="100" height="50"/>
@@ -3337,7 +3336,7 @@ func TestTapOnError(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/tap") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "tap failed",
 					"message": "Failed to tap",
@@ -3345,7 +3344,7 @@ func TestTapOnError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3365,7 +3364,7 @@ func TestPressKeyHomeError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/pressButton") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "home failed",
 					"message": "Failed to go home",
@@ -3373,7 +3372,7 @@ func TestPressKeyHomeError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3391,7 +3390,7 @@ func TestPressKeyVolumeUpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/pressButton") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "button failed",
 					"message": "Failed to press button",
@@ -3399,7 +3398,7 @@ func TestPressKeyVolumeUpError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3417,7 +3416,7 @@ func TestFindElementsError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/elements") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "find elements failed",
 					"message": "No elements found",
@@ -3425,7 +3424,7 @@ func TestFindElementsError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3446,7 +3445,7 @@ func TestCopyTextFromNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeButton name="btn" label="Button" x="10" y="20" width="100" height="50"/>
@@ -3454,7 +3453,7 @@ func TestCopyTextFromNotFound(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3474,7 +3473,7 @@ func TestTapOnNotFoundError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeButton name="btn" label="Button" x="10" y="20" width="100" height="50"/>
@@ -3482,7 +3481,7 @@ func TestTapOnNotFoundError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3503,7 +3502,7 @@ func TestDoubleTapOnError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeButton name="btn" label="Button" x="10" y="20" width="100" height="50"/>
@@ -3512,7 +3511,7 @@ func TestDoubleTapOnError(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/doubleTap") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "doubleTap failed",
 					"message": "Failed to double tap",
@@ -3520,7 +3519,7 @@ func TestDoubleTapOnError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3540,7 +3539,7 @@ func TestLongPressOnError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeButton name="btn" label="Button" x="10" y="20" width="100" height="50"/>
@@ -3549,7 +3548,7 @@ func TestLongPressOnError(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/touchAndHold") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "longPress failed",
 					"message": "Failed to long press",
@@ -3557,7 +3556,7 @@ func TestLongPressOnError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3577,7 +3576,7 @@ func TestTapOnPointError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/tap") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "tap failed",
 					"message": "Failed to tap",
@@ -3585,7 +3584,7 @@ func TestTapOnPointError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3603,7 +3602,7 @@ func TestKillAppTerminateError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/wda/apps/terminate") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "terminate failed",
 					"message": "Failed to terminate app",
@@ -3611,7 +3610,7 @@ func TestKillAppTerminateError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3661,7 +3660,7 @@ func TestFindElementQuickWithSize(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeButton name="btn" label="TestButton" x="10" y="10" width="100" height="50"/>
@@ -3670,7 +3669,7 @@ func TestFindElementQuickWithSize(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3693,7 +3692,7 @@ func TestFindElementQuickWDAFallback(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// WDA element finds fail
 		if strings.Contains(r.URL.Path, "/element") && r.Method == "POST" && !strings.Contains(r.URL.Path, "/elements") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error": "no such element",
 				},
@@ -3701,7 +3700,7 @@ func TestFindElementQuickWDAFallback(t *testing.T) {
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeStaticText name="testID" label="Fallback Text" x="10" y="10" width="100" height="50"/>
@@ -3709,7 +3708,7 @@ func TestFindElementQuickWDAFallback(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3753,12 +3752,12 @@ func TestFindElementRelativeParseError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": "invalid xml <not closed",
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3779,7 +3778,7 @@ func TestFindElementRelativeSourceError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "source error",
 					"message": "Failed to get source",
@@ -3787,7 +3786,7 @@ func TestFindElementRelativeSourceError(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -3808,7 +3807,7 @@ func TestFindElementsClientMethod(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/elements") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": []map[string]interface{}{
 					{"ELEMENT": "elem1"},
 					{"ELEMENT": "elem2"},
@@ -3817,7 +3816,7 @@ func TestFindElementsClientMethod(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3841,12 +3840,12 @@ func TestFindElementsEmptyResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/elements") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": []map[string]interface{}{},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -3869,7 +3868,7 @@ func TestFindElementsEmptyResult(t *testing.T) {
 func TestFindElementsErrorPath(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		jsonResponse(w, map[string]interface{}{
 			"value": map[string]interface{}{
 				"error":   "no such element",
 				"message": "Elements not found",
@@ -3895,7 +3894,7 @@ func TestContainsDescendantsFilter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeOther name="container" x="0" y="0" width="400" height="400">
@@ -3906,7 +3905,7 @@ func TestContainsDescendantsFilter(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4026,10 +4025,10 @@ func TestClientDeleteMethod(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == "DELETE" {
 			deleteCalled = true
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -4052,7 +4051,7 @@ func TestClientDeleteMethod(t *testing.T) {
 func TestClientDeleteError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		jsonResponse(w, map[string]interface{}{
 			"value": map[string]interface{}{
 				"error":   "delete failed",
 				"message": "Failed to delete",
@@ -4078,7 +4077,7 @@ func TestWaitForAnimationToEndErrorPath(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/wda/screen") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error":   "screen error",
 					"message": "Failed to get screen",
@@ -4086,7 +4085,7 @@ func TestWaitForAnimationToEndErrorPath(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4101,7 +4100,7 @@ func TestTapOnWithID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/element") && strings.Contains(r.URL.Path, "/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"x": 50, "y": 100, "width": 100, "height": 50,
 				},
@@ -4109,12 +4108,12 @@ func TestTapOnWithID(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/elements") || (strings.Contains(r.URL.Path, "/element") && r.Method == "POST") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"ELEMENT": "elem1"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4135,7 +4134,7 @@ func TestTapOnWithPoint(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"width":  1080,
 					"height": 2340,
@@ -4143,7 +4142,7 @@ func TestTapOnWithPoint(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4163,14 +4162,14 @@ func TestTapOnOptionalNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/element") || strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error": "no such element",
 				},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4192,7 +4191,7 @@ func TestTapOnWithElementIDClickFallback(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/element") && strings.Contains(r.URL.Path, "/click") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error": "click failed",
 				},
@@ -4200,7 +4199,7 @@ func TestTapOnWithElementIDClickFallback(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/element") && strings.Contains(r.URL.Path, "/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"x": 50, "y": 100, "width": 100, "height": 50,
 				},
@@ -4208,12 +4207,12 @@ func TestTapOnWithElementIDClickFallback(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/element") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"ELEMENT": "elem1"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4234,7 +4233,7 @@ func TestTapOnPointWithPercentageTapFails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"width":  1080,
 					"height": 2340,
@@ -4243,14 +4242,14 @@ func TestTapOnPointWithPercentageTapFails(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/tap") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error": "tap failed",
 				},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4268,7 +4267,7 @@ func TestFindElementsW3CFormat(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/elements") && r.Method == "POST" {
 			// W3C format - uses UUID key instead of ELEMENT
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": []map[string]interface{}{
 					{"element-6066-11e4-a52e-4f735466cecf": "elem1"},
 					{"element-6066-11e4-a52e-4f735466cecf": "elem2"},
@@ -4276,7 +4275,7 @@ func TestFindElementsW3CFormat(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -4299,7 +4298,7 @@ func TestFindElementsW3CFormat(t *testing.T) {
 func TestGetClientMethodError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		jsonResponse(w, map[string]interface{}{
 			"value": map[string]interface{}{
 				"error":   "get failed",
 				"message": "Failed to get",
@@ -4324,7 +4323,7 @@ func TestGetClientMethodError(t *testing.T) {
 func TestPostClientMethodSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		jsonResponse(w, map[string]interface{}{
 			"value": map[string]interface{}{
 				"result": "success",
 			},
@@ -4379,7 +4378,7 @@ func TestAssertNotVisibleOptional(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<?xml version="1.0"?>
 <AppiumAUT>
   <XCUIElementTypeButton name="btn" label="FoundButton" x="10" y="10" width="100" height="50"/>
@@ -4387,7 +4386,7 @@ func TestAssertNotVisibleOptional(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4408,7 +4407,7 @@ func TestAssertNotVisibleOptional(t *testing.T) {
 func TestInputTextAppendMode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4427,7 +4426,9 @@ func TestInputTextAppendMode(t *testing.T) {
 func TestParseResponseInvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("not valid json"))
+		if _, err := w.Write([]byte("not valid json")); err != nil {
+			return
+		}
 	}))
 	defer server.Close()
 
@@ -4447,7 +4448,7 @@ func TestParseResponseInvalidJSON(t *testing.T) {
 func TestParseResponseWDAErrorNoMessage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		jsonResponse(w, map[string]interface{}{
 			"value": map[string]interface{}{
 				"error": "simple error",
 			},
@@ -4475,14 +4476,14 @@ func TestTapOnPointWithPercentageWindowSizeError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"error": "window size failed",
 				},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4519,20 +4520,20 @@ func TestFindElementByWDAWithText(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/element") && r.Method == "POST" {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"ELEMENT": "elem1"},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/rect") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"x": 10, "y": 20, "width": 100, "height": 50,
 				},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4552,7 +4553,7 @@ func TestFindElementByWDAWithText(t *testing.T) {
 func TestFindElementTimeoutPath(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		jsonResponse(w, map[string]interface{}{
 			"value": map[string]interface{}{
 				"error": "not found",
 			},
@@ -4577,7 +4578,7 @@ func TestPostWithNilBody(t *testing.T) {
 		if r.Method == "POST" {
 			postCalled = true
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -4601,12 +4602,12 @@ func TestFindElementByPageSourceOnceParseErrorPath(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": "invalid xml <not closed",
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4624,7 +4625,7 @@ func TestInputTextTapError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication>
 					<XCUIElementTypeTextField label="InputField" x="10" y="20" width="200" height="40" enabled="true" visible="true"/>
 				</XCUIElementTypeApplication>`,
@@ -4632,12 +4633,12 @@ func TestInputTextTapError(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/wda/tap") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "tap failed"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4658,7 +4659,7 @@ func TestAssertNotVisibleWithTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// Return error to indicate element not found
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		jsonResponse(w, map[string]interface{}{
 			"value": map[string]interface{}{"error": "not found"},
 		})
 	}))
@@ -4681,12 +4682,12 @@ func TestSwipeWithPixelCoordinates(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4709,12 +4710,12 @@ func TestSwipeWithDuration(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4735,12 +4736,12 @@ func TestScrollLeft(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4758,12 +4759,12 @@ func TestScrollRight(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4781,12 +4782,12 @@ func TestSwipeLeft(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4804,12 +4805,12 @@ func TestSwipeRight(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4827,12 +4828,12 @@ func TestSwipeDown(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4850,7 +4851,7 @@ func TestTapOnCoordinateFallbackError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication>
 					<XCUIElementTypeButton name="btn1" label="Button" x="10" y="20" width="100" height="50" enabled="true" visible="true"/>
 				</XCUIElementTypeApplication>`,
@@ -4858,18 +4859,18 @@ func TestTapOnCoordinateFallbackError(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "/element") && strings.Contains(r.URL.Path, "/click") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "click failed"},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/wda/tap") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "tap failed"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4889,12 +4890,12 @@ func TestScrollDownDirection(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4912,12 +4913,12 @@ func TestInputTextSendKeysError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/wda/keys") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "keys failed"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4934,7 +4935,7 @@ func TestInputTextSendKeysError(t *testing.T) {
 func TestInputRandomDefaultLength(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -4958,7 +4959,7 @@ func TestInputRandomDefaultLength(t *testing.T) {
 func TestInputRandomError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		jsonResponse(w, map[string]interface{}{
 			"value": map[string]interface{}{"error": "send keys failed"},
 		})
 	}))
@@ -4978,18 +4979,18 @@ func TestScrollSwipeError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/dragfromtoforduration") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "swipe failed"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5007,12 +5008,12 @@ func TestSwipeInvalidEndCoords(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5033,18 +5034,18 @@ func TestSwipeError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/dragfromtoforduration") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "drag failed"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5065,24 +5066,24 @@ func TestScrollUntilVisibleScrollFails(t *testing.T) {
 		callCount++
 		if strings.HasSuffix(r.URL.Path, "/source") {
 			// Element not found
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication></XCUIElementTypeApplication>`,
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/dragfromtoforduration") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "scroll failed"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5187,14 +5188,14 @@ func TestEraseTextElementClearFallback(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/element/active") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"ELEMENT": "elem-123"},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/clear") {
 			// ElementClear fails
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "clear failed"},
 			})
 			return
@@ -5202,10 +5203,10 @@ func TestEraseTextElementClearFallback(t *testing.T) {
 		if strings.Contains(r.URL.Path, "/keys") {
 			// Delete keys - count calls
 			deleteKeyCount++
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5228,23 +5229,23 @@ func TestScrollUntilVisibleMaxScrolls(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
 			// Element never found
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication></XCUIElementTypeApplication>`,
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/dragfromtoforduration") {
 			scrollCount++
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5270,12 +5271,12 @@ func TestTapOnWithSelectorParseError(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
 			// Return invalid XML
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `not valid xml`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5296,14 +5297,14 @@ func TestFindElementRelativeWithNonExistentAnchor(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication>
 					<XCUIElementTypeButton label="Target" x="50" y="200" width="100" height="40" enabled="true" visible="true"/>
 				</XCUIElementTypeApplication>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5327,7 +5328,7 @@ func TestFindElementRelativeWithNonExistentAnchor(t *testing.T) {
 func TestInputTextWithUnicodeChars(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5348,12 +5349,12 @@ func TestScrollUpDirection(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5387,7 +5388,7 @@ func TestElementRectParsesValues(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/rect") {
 			// Return incomplete rect data - only x and y
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{
 					"x": 10.0,
 					"y": 20.0,
@@ -5396,7 +5397,7 @@ func TestElementRectParsesValues(t *testing.T) {
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 
@@ -5441,12 +5442,12 @@ func TestFindElementWithCustomOptionalFindTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication></XCUIElementTypeApplication>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5469,12 +5470,12 @@ func TestAssertNotVisibleDefaultTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication></XCUIElementTypeApplication>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5496,23 +5497,23 @@ func TestScrollUntilVisibleWithTimeoutMs(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication></XCUIElementTypeApplication>`,
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/window/size") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"width": 1080.0, "height": 1920.0},
 			})
 			return
 		}
 		if strings.Contains(r.URL.Path, "/dragfromtoforduration") {
 			scrollCount++
-			json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+			jsonResponse(w, map[string]interface{}{"status": 0})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5536,14 +5537,14 @@ func TestExecuteScrollUntilVisibleStep(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication>
 					<XCUIElementTypeButton label="Target" x="50" y="100" width="100" height="40" enabled="true" visible="true"/>
 				</XCUIElementTypeApplication>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5563,14 +5564,14 @@ func TestExecuteWaitUntilStep(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication>
 					<XCUIElementTypeButton label="Target" x="50" y="100" width="100" height="40" enabled="true" visible="true"/>
 				</XCUIElementTypeApplication>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5591,12 +5592,12 @@ func TestPressKeyHomeWhenHomeFails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/wda/pressButton") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": map[string]interface{}{"error": "button press failed"},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)
@@ -5615,18 +5616,18 @@ func TestFindElementByWDAWithIDNotFound(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/elements") {
 			// Return empty array - no elements found
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": []interface{}{},
 			})
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/source") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			jsonResponse(w, map[string]interface{}{
 				"value": `<XCUIElementTypeApplication></XCUIElementTypeApplication>`,
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": 0})
+		jsonResponse(w, map[string]interface{}{"status": 0})
 	}))
 	defer server.Close()
 	driver := createTestDriver(server)

@@ -200,7 +200,9 @@ func TestSetInterval(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Clear the interval
-	engine.RunScript("clearInterval(intervalId)")
+	if err := engine.RunScript("clearInterval(intervalId)"); err != nil {
+		t.Fatalf("failed to clear interval: %v", err)
+	}
 
 	result, err := engine.Eval("counter")
 	if err != nil {

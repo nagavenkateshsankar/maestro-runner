@@ -147,7 +147,9 @@ func createUIAutomator2Driver(cfg *RunConfig, dev *device.AndroidDevice, info de
 	}
 	if err := client.CreateSession(caps); err != nil {
 		logger.Error("Failed to create session: %v", err)
-		dev.StopUIAutomator2()
+		if stopErr := dev.StopUIAutomator2(); stopErr != nil {
+			logger.Warn("failed to stop UIAutomator2 after session failure: %v", stopErr)
+		}
 		return nil, nil, fmt.Errorf("create session: %w", err)
 	}
 	logger.Info("Session created successfully: %s", client.SessionID())
@@ -183,7 +185,9 @@ func createUIAutomator2Driver(cfg *RunConfig, dev *device.AndroidDevice, info de
 	// Cleanup function (silent)
 	cleanup := func() {
 		client.Close()
-		dev.StopUIAutomator2()
+		if err := dev.StopUIAutomator2(); err != nil {
+			logger.Warn("failed to stop UIAutomator2 during cleanup: %v", err)
+		}
 	}
 
 	return driver, cleanup, nil

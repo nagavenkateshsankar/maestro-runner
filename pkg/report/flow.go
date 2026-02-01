@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 )
 
 // FlowWriter writes updates for a single flow.
@@ -22,7 +24,9 @@ func NewFlowWriter(flowDetail *FlowDetail, outputDir string, index *IndexWriter)
 	assetsDir := filepath.Join(outputDir, "assets", flowDetail.ID)
 
 	// Ensure assets directory exists
-	ensureDir(assetsDir)
+	if err := ensureDir(assetsDir); err != nil {
+		logger.Warn("failed to create assets directory %s: %v", assetsDir, err)
+	}
 
 	return &FlowWriter{
 		flow:      flowDetail,
@@ -182,7 +186,9 @@ func (w *FlowWriter) GetFlowDetail() *FlowDetail {
 
 // flush writes the flow detail to disk.
 func (w *FlowWriter) flush() {
-	atomicWriteJSON(w.path, w.flow)
+	if err := atomicWriteJSON(w.path, w.flow); err != nil {
+		logger.Warn("failed to write flow detail to %s: %v", w.path, err)
+	}
 }
 
 // updateIndex updates the index with current flow state.

@@ -197,7 +197,9 @@ func unzip(src, dest string) error {
 		}
 
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(target, 0755)
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return err
+			}
 			continue
 		}
 

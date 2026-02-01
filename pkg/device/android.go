@@ -129,7 +129,7 @@ func buildNoDevicesError() error {
 	if len(avds) > 0 {
 		noDevErr.Suggestions = append(noDevErr.Suggestions,
 			fmt.Sprintf("Start emulator manually: emulator -avd %s", avds[0]),
-			fmt.Sprintf("Auto-start first AVD: maestro-runner --auto-start-emulator <flow>"),
+			"Auto-start first AVD: maestro-runner --auto-start-emulator <flow>",
 			fmt.Sprintf("Start specific AVD: maestro-runner --start-emulator %s <flow>", avds[0]),
 		)
 

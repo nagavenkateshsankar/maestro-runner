@@ -461,28 +461,6 @@ func (d *Driver) findElementRelative(sel flow.Selector, timeout time.Duration) (
 	return d.findElementRelativeWithContext(ctx, sel)
 }
 
-// findElementWithContext finds an element using context for deadline management.
-// This is the preferred method as it respects context cancellation and deadlines.
-func (d *Driver) findElementWithContext(ctx context.Context, sel flow.Selector) (*core.ElementInfo, error) {
-	if sel.HasRelativeSelector() {
-		return d.findElementRelativeWithContext(ctx, sel)
-	}
-
-	// Simple selector - poll until found or context cancelled
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("element not found: %s", sel.Describe())
-		default:
-			info, err := d.findElementDirect(sel)
-			if err == nil && info != nil {
-				return info, nil
-			}
-			// HTTP round-trip (~100ms) is natural rate limit, no sleep needed
-		}
-	}
-}
-
 // findElementOnce finds an element with a single attempt (no polling).
 // Used for quick checks like waitUntil where we poll externally.
 func (d *Driver) findElementOnce(sel flow.Selector) (*core.ElementInfo, error) {
@@ -606,7 +584,7 @@ func (d *Driver) findElementRelativeWithElements(sel flow.Selector, allElements 
 
 	// Prioritize and select
 	candidates = SortClickableFirst(candidates)
-	if candidates == nil || len(candidates) == 0 {
+	if len(candidates) == 0 {
 		return nil, fmt.Errorf("no candidates after sorting")
 	}
 

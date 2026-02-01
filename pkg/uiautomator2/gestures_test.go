@@ -14,11 +14,17 @@ func TestClick(t *testing.T) {
 		}
 
 		var req ClickRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Offset == nil || req.Offset.X != 100 || req.Offset.Y != 200 {
 			t.Errorf("unexpected offset: %+v", req.Offset)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -31,11 +37,17 @@ func TestClick(t *testing.T) {
 func TestClickElement(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
 		var req ClickRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Origin == nil || req.Origin.ELEMENT != "elem-123" {
 			t.Errorf("unexpected origin: %+v", req.Origin)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -52,11 +64,17 @@ func TestLongClick(t *testing.T) {
 		}
 
 		var req LongClickRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Offset.X != 100 || req.Offset.Y != 200 || req.Duration != 1000 {
 			t.Errorf("unexpected request: %+v", req)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -69,11 +87,17 @@ func TestLongClick(t *testing.T) {
 func TestLongClickElement(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
 		var req LongClickRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Origin.ELEMENT != "elem-123" || req.Duration != 500 {
 			t.Errorf("unexpected request: %+v", req)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -90,11 +114,17 @@ func TestDoubleClick(t *testing.T) {
 		}
 
 		var req ClickRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Offset.X != 150 || req.Offset.Y != 250 {
 			t.Errorf("unexpected offset: %+v", req.Offset)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -107,11 +137,17 @@ func TestDoubleClick(t *testing.T) {
 func TestDoubleClickElement(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
 		var req ClickRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Origin.ELEMENT != "elem-456" {
 			t.Errorf("unexpected origin: %+v", req.Origin)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -128,7 +164,10 @@ func TestSwipe(t *testing.T) {
 		}
 
 		var req SwipeRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Origin.ELEMENT != "elem-123" {
 			t.Errorf("unexpected origin: %+v", req.Origin)
 		}
@@ -138,7 +177,10 @@ func TestSwipe(t *testing.T) {
 		if req.Percent != 0.5 {
 			t.Errorf("expected percent 0.5, got %f", req.Percent)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -151,7 +193,10 @@ func TestSwipe(t *testing.T) {
 func TestSwipeInArea(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
 		var req SwipeRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		// NewRect(0, 100, 500, 800) creates Left=0, Top=100, Width=500, Height=800
 		if req.Area.Left != 0 || req.Area.Top != 100 || req.Area.Width != 500 || req.Area.Height != 800 {
 			t.Errorf("unexpected area: %+v", req.Area)
@@ -159,7 +204,10 @@ func TestSwipeInArea(t *testing.T) {
 		if req.Direction != "down" {
 			t.Errorf("expected direction down, got %s", req.Direction)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -177,14 +225,20 @@ func TestScroll(t *testing.T) {
 		}
 
 		var req ScrollRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Origin.ELEMENT != "scroll-view" {
 			t.Errorf("unexpected origin: %+v", req.Origin)
 		}
 		if req.Direction != "down" || req.Percent != 0.3 {
 			t.Errorf("unexpected request: %+v", req)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -197,12 +251,18 @@ func TestScroll(t *testing.T) {
 func TestScrollInArea(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
 		var req ScrollRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		// NewRect(10, 20, 100, 200) creates Left=10, Top=20, Width=100, Height=200
 		if req.Area.Left != 10 || req.Area.Top != 20 || req.Area.Width != 100 || req.Area.Height != 200 {
 			t.Errorf("unexpected area: %+v", req.Area)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -220,14 +280,20 @@ func TestDrag(t *testing.T) {
 		}
 
 		var req DragRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Origin.ELEMENT != "drag-elem" {
 			t.Errorf("unexpected origin: %+v", req.Origin)
 		}
 		if req.EndX != 300 || req.EndY != 400 {
 			t.Errorf("unexpected end: %d, %d", req.EndX, req.EndY)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -244,14 +310,20 @@ func TestPinchOpen(t *testing.T) {
 		}
 
 		var req PinchRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Origin.ELEMENT != "pinch-elem" {
 			t.Errorf("unexpected origin: %+v", req.Origin)
 		}
 		if req.Percent != 0.75 {
 			t.Errorf("expected percent 0.75, got %f", req.Percent)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -268,14 +340,20 @@ func TestPinchClose(t *testing.T) {
 		}
 
 		var req PinchRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Origin.ELEMENT != "zoom-out" {
 			t.Errorf("unexpected origin: %+v", req.Origin)
 		}
 		if req.Percent != 0.25 {
 			t.Errorf("expected percent 0.25, got %f", req.Percent)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 

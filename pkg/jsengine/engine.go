@@ -78,7 +78,9 @@ func (e *Engine) setupBuiltins() {
 	}
 
 	// Maestro object
-	e.runtime.Set("maestro", e.maestroObject())
+	if err := e.runtime.Set("maestro", e.maestroObject()); err != nil {
+		logger.Warn("failed to set JS runtime global 'maestro': %v", err)
+	}
 }
 
 // setupConsole adds console.log, console.error, etc.
@@ -109,13 +111,15 @@ func (e *Engine) setupConsole() {
 	if err := console.Set("warn", makeConsoleFunc("WARN:")); err != nil {
 		logger.Warn("failed to set console.warn: %v", err)
 	}
-	e.runtime.Set("console", console)
+	if err := e.runtime.Set("console", console); err != nil {
+		logger.Warn("failed to set JS runtime global 'console': %v", err)
+	}
 }
 
 // setupTimers adds setTimeout, setInterval, clearTimeout, clearInterval
 func (e *Engine) setupTimers() {
 	// setTimeout
-	e.runtime.Set("setTimeout", func(call goja.FunctionCall) goja.Value {
+	if err := e.runtime.Set("setTimeout", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 2 {
 			panic(e.runtime.NewTypeError("setTimeout requires 2 arguments"))
 		}
@@ -151,10 +155,12 @@ func (e *Engine) setupTimers() {
 		e.timers.mu.Unlock()
 
 		return e.runtime.ToValue(id)
-	})
+	}); err != nil {
+		logger.Warn("failed to set JS runtime global 'setTimeout': %v", err)
+	}
 
 	// clearTimeout
-	e.runtime.Set("clearTimeout", func(call goja.FunctionCall) goja.Value {
+	if err := e.runtime.Set("clearTimeout", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
 			return goja.Undefined()
 		}
@@ -169,10 +175,12 @@ func (e *Engine) setupTimers() {
 		e.timers.mu.Unlock()
 
 		return goja.Undefined()
-	})
+	}); err != nil {
+		logger.Warn("failed to set JS runtime global 'clearTimeout': %v", err)
+	}
 
 	// setInterval
-	e.runtime.Set("setInterval", func(call goja.FunctionCall) goja.Value {
+	if err := e.runtime.Set("setInterval", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 2 {
 			panic(e.runtime.NewTypeError("setInterval requires 2 arguments"))
 		}
@@ -210,10 +218,12 @@ func (e *Engine) setupTimers() {
 		}()
 
 		return e.runtime.ToValue(id)
-	})
+	}); err != nil {
+		logger.Warn("failed to set JS runtime global 'setInterval': %v", err)
+	}
 
 	// clearInterval
-	e.runtime.Set("clearInterval", func(call goja.FunctionCall) goja.Value {
+	if err := e.runtime.Set("clearInterval", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
 			return goja.Undefined()
 		}
@@ -228,7 +238,9 @@ func (e *Engine) setupTimers() {
 		e.timers.mu.Unlock()
 
 		return goja.Undefined()
-	})
+	}); err != nil {
+		logger.Warn("failed to set JS runtime global 'clearInterval': %v", err)
+	}
 }
 
 // jsonFunc returns the json() helper function
@@ -255,14 +267,18 @@ func (e *Engine) maestroObject() *goja.Object {
 	obj := e.runtime.NewObject()
 
 	// maestro.copiedText - text copied via copyTextFrom
-	obj.DefineAccessorProperty("copiedText", e.runtime.ToValue(func() string {
+	if err := obj.DefineAccessorProperty("copiedText", e.runtime.ToValue(func() string {
 		return e.copiedText
-	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE); err != nil {
+		logger.Warn("failed to define maestro.copiedText: %v", err)
+	}
 
 	// maestro.platform - current platform (android/ios)
-	obj.DefineAccessorProperty("platform", e.runtime.ToValue(func() string {
+	if err := obj.DefineAccessorProperty("platform", e.runtime.ToValue(func() string {
 		return e.platform
-	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE); err != nil {
+		logger.Warn("failed to define maestro.platform: %v", err)
+	}
 
 	return obj
 }
@@ -273,7 +289,9 @@ func (e *Engine) SetVariable(name string, value interface{}) {
 	defer e.mu.Unlock()
 
 	e.variables[name] = value
-	e.runtime.Set(name, value)
+	if err := e.runtime.Set(name, value); err != nil {
+		logger.Warn("failed to set JS variable '%s': %v", name, err)
+	}
 }
 
 // SetVariables sets multiple variables
@@ -382,7 +400,9 @@ func (e *Engine) DefineUndefinedIfMissing(name string) {
 	if val == nil || goja.IsUndefined(val) {
 		// Only set if not already defined (nil means not set at all)
 		if _, exists := e.variables[name]; !exists {
-			e.runtime.Set(name, goja.Undefined())
+			if err := e.runtime.Set(name, goja.Undefined()); err != nil {
+				logger.Warn("failed to set JS variable '%s' to undefined: %v", name, err)
+			}
 		}
 	}
 }

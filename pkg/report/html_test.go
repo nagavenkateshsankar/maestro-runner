@@ -222,9 +222,15 @@ func TestGenerateHTMLWithError(t *testing.T) {
 		},
 	}
 
-	os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755)
-	atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index)
-	atomicWriteJSON(filepath.Join(tmpDir, "flows", "flow-000.json"), flowDetail)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755); err != nil {
+		t.Fatalf("failed to create flows directory: %v", err)
+	}
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index); err != nil {
+		t.Fatalf("failed to write report.json: %v", err)
+	}
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "flows", "flow-000.json"), flowDetail); err != nil {
+		t.Fatalf("failed to write flow detail: %v", err)
+	}
 
 	outputPath := filepath.Join(tmpDir, "report.html")
 	err := GenerateHTML(tmpDir, HTMLConfig{OutputPath: outputPath})
@@ -266,8 +272,12 @@ func TestGenerateHTMLDefaultOutput(t *testing.T) {
 		Flows:         []FlowEntry{},
 	}
 
-	os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755)
-	atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755); err != nil {
+		t.Fatalf("failed to create flows directory: %v", err)
+	}
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index); err != nil {
+		t.Fatalf("failed to write report.json: %v", err)
+	}
 
 	// Generate with no output path - should use default
 	err := GenerateHTML(tmpDir, HTMLConfig{})
@@ -332,7 +342,9 @@ func TestLoadAsBase64(t *testing.T) {
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
 		0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
 	}
-	os.WriteFile(pngPath, pngData, 0o644)
+	if err := os.WriteFile(pngPath, pngData, 0o644); err != nil {
+		t.Fatalf("failed to write PNG file: %v", err)
+	}
 
 	result = loadAsBase64(pngPath)
 	if !strings.HasPrefix(result, "data:image/png;base64,") {
@@ -341,7 +353,9 @@ func TestLoadAsBase64(t *testing.T) {
 
 	// Test JPEG
 	jpgPath := filepath.Join(tmpDir, "test.jpg")
-	os.WriteFile(jpgPath, []byte{0xFF, 0xD8, 0xFF}, 0o644)
+	if err := os.WriteFile(jpgPath, []byte{0xFF, 0xD8, 0xFF}, 0o644); err != nil {
+		t.Fatalf("failed to write JPEG file: %v", err)
+	}
 	result = loadAsBase64(jpgPath)
 	if !strings.HasPrefix(result, "data:image/jpeg;base64,") {
 		t.Error("expected base64 JPEG")
