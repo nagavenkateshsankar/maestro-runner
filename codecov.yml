@@ -3,4 +3,5 @@ ignore:
   - "pkg/device/**"
   - "pkg/emulator/**"
   - "pkg/simulator/**"
+  - "pkg/jsengine/**"
   - "pkg/logger/**"
