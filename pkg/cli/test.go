@@ -477,6 +477,9 @@ func runTest(c *cli.Context) error {
 	// Print banner at start
 	printBanner()
 
+	// Check for updates (non-blocking, 3s timeout)
+	checkForUpdate()
+
 	// Helper to get flag value from current or parent context
 	// When run as subcommand, global flags are in parent context
 	getString := func(name string) string {

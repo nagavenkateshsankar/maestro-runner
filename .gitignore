@@ -35,3 +35,8 @@ reports/
 apks/
 CLAUDE.md
 .claude/
+
+# Local-only files
+BUILD_INSTRUCTIONS.md
+testdata/
+scripts/
