@@ -17,7 +17,7 @@
 
 [![CI](https://github.com/devicelab-dev/maestro-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/devicelab-dev/maestro-runner/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/devicelab-dev/maestro-runner/branch/main/graph/badge.svg)](https://codecov.io/gh/devicelab-dev/maestro-runner)
-[![Go Report Card](https://goreportcard.com/badge/github.com/devicelab-dev/maestro-runner)](https://goreportcard.com/report/github.com/devicelab-dev/maestro-runner)
+[![Go Report Card](https://goreportcard.com/badge/github.com/devicelab-dev/maestro-runner?v=2)](https://goreportcard.com/report/github.com/devicelab-dev/maestro-runner)
 
 <b><a href="https://devicelab.dev/open-source/maestro-runner">Documentation</a></b> | <b><a href="#install">Get Started</a></b> | <b><a href="docs/cli-reference.md">CLI Reference</a></b> | <b><a href="docs/flow-commands.md">Flow Commands</a></b> | <b><a href="CONTRIBUTING.md">Contributing</a></b>
 

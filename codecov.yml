@@ -1,0 +1,6 @@
+ignore:
+  - "pkg/cli/**"
+  - "pkg/device/**"
+  - "pkg/emulator/**"
+  - "pkg/simulator/**"
+  - "pkg/logger/**"
