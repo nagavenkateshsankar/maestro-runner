@@ -8,7 +8,7 @@
 <br>
 *Open-source Maestro alternative — single binary, no JVM. 100% free, no features behind a paywall.*
 
-![3.6x faster](https://img.shields.io/badge/3.6x_faster-brightgreen?style=for-the-badge) ![14x less memory](https://img.shields.io/badge/14x_less_memory-brightgreen?style=for-the-badge)
+![3.6x faster](https://img.shields.io/badge/3.6x_faster-3a9d5c?style=for-the-badge) ![14x less memory](https://img.shields.io/badge/14x_less_memory-3a9d5c?style=for-the-badge)
 
 [![license](https://img.shields.io/badge/license-Apache_2.0-blue.svg?style=for-the-badge)](LICENSE)
 [![by](https://img.shields.io/badge/by-DeviceLab.dev-17a2b8.svg?style=for-the-badge)](https://devicelab.dev)
@@ -42,7 +42,7 @@ Or download a pre-built binary from [releases](https://devicelab.dev/open-source
 maestro-runner flow.yaml                              # Android (default)
 maestro-runner --platform ios flow.yaml               # iOS
 maestro-runner flows/                                 # All flows in a directory
-maestro-runner --driver appium flow.yaml              # Appium (local or cloud)
+maestro-runner --driver appium --appium-url <server-url> flow.yaml  # Appium
 maestro-runner --parallel 3 flows/                    # Parallel on 3 devices
 ```
 
@@ -90,7 +90,7 @@ waitForIdleTimeout: 3000    # Device idle wait (ms), 0 to disable
 
 - **Android testing:** `adb` (Android SDK Platform-Tools)
 - **iOS testing:** Xcode command-line tools (`xcrun`)
-- **Cloud testing:** Appium server 2.x (`npm i -g appium`)
+- **Cloud & Appium testing:** Appium 2.x or 3.x — works with local Appium servers and cloud providers (BrowserStack, Sauce Labs, LambdaTest)
 
 ## Contributing
 
