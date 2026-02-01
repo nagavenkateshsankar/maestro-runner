@@ -7,6 +7,8 @@
 **Fast mobile UI test automation for Android & iOS**
 <br>
 *Open-source Maestro alternative — single binary, no JVM. 100% free, no features behind a paywall.*
+<br>
+*Supports real iOS devices, simulators, emulators, and cloud providers.*
 
 ![3.6x faster](https://img.shields.io/badge/3.6x_faster-3a9d5c?style=for-the-badge) ![14x less memory](https://img.shields.io/badge/14x_less_memory-3a9d5c?style=for-the-badge)
 
@@ -48,6 +50,8 @@ maestro-runner --parallel 3 flows/                    # Parallel on 3 devices
 
 ## Key Features
 
+- **Real iOS device testing** — Supports physical iOS devices, not just simulators
+- **Wide OS compatibility** — Works across Android and iOS versions without version restrictions
 - **Reliable text input** — Direct ADB input with Unicode support, no dropped characters
 - **Fast element finding** — Native selectors, clickable parent traversal, regex matching, smarter visibility
 - **Configurable timeouts** — Per-command and per-flow timeouts, `--wait-for-idle-timeout 0` to disable
