@@ -9,7 +9,7 @@
 *Open-source Maestro alternative — single Go binary, no JVM, 3.6x faster with 14x less memory*
 
 [![license](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
-[![by](https://img.shields.io/badge/by-DeviceLab.dev-green.svg)](https://devicelab.dev)
+[![by](https://img.shields.io/badge/by-DeviceLab.dev-17a2b8.svg)](https://devicelab.dev)
 
 [![CI](https://github.com/devicelab-dev/maestro-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/devicelab-dev/maestro-runner/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/devicelab-dev/maestro-runner/branch/main/graph/badge.svg)](https://codecov.io/gh/devicelab-dev/maestro-runner)
@@ -92,6 +92,7 @@ waitForIdleTimeout: 3000    # Device idle wait (ms), 0 to disable
 | **[CLI Reference](docs/cli-reference.md)** | Commands, flags, environment variables, tag filtering, parallel execution, emulator & simulator management |
 | **[Flow Commands](docs/flow-commands.md)** | Complete YAML command reference — selectors, tap & gesture, text input, assertions, app lifecycle, flow control, JavaScript scripting |
 | **[Technical Approach](docs/technical-approach.md)** | Driver architecture, element finding strategy, UIAutomator2 & WDA server lifecycles, report system |
+| **[Full Documentation](https://devicelab.dev/open-source/maestro-runner)** | Complete guide with examples, setup instructions, and advanced usage |
 
 ## Contributing
 
