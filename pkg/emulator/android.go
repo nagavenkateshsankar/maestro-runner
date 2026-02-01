@@ -236,7 +236,9 @@ func StartEmulator(avdName string, consolePort int, timeout time.Duration) (stri
 
 	// Stage 1: Wait for device state (60s)
 	if err := WaitForDeviceState(serial, 60*time.Second); err != nil {
-		cmd.Process.Kill()
+		if err := cmd.Process.Kill(); err != nil {
+			logger.Warn("failed to kill emulator process: %v", err)
+		}
 		cmd.Wait() //nolint:errcheck // best-effort reap after kill
 		return "", nil, fmt.Errorf("device state check failed: %w", err)
 	}
@@ -249,7 +251,9 @@ func StartEmulator(avdName string, consolePort int, timeout time.Duration) (stri
 	}
 
 	if err := WaitForBootComplete(serial, remaining); err != nil {
-		cmd.Process.Kill()
+		if err := cmd.Process.Kill(); err != nil {
+			logger.Warn("failed to kill emulator process: %v", err)
+		}
 		cmd.Wait() //nolint:errcheck // best-effort reap after kill
 		return "", nil, err
 	}

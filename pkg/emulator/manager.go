@@ -67,8 +67,8 @@ func (m *Manager) StartWithRetry(avdName string, timeout time.Duration, maxAttem
 		}
 
 		// Non-port error - don't retry
-		logger.Error("Emulator start failed (non-retriable): %v", err)
-		return "", err
+		logger.Error("Emulator start failed (non-retriable): %v", lastErr)
+		return "", lastErr
 	}
 
 	// All attempts exhausted

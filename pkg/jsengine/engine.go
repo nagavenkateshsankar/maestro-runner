@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 	"github.com/dop251/goja"
 )
 
@@ -62,13 +63,19 @@ func (e *Engine) setupBuiltins() {
 	e.setupTimers()
 
 	// JSON helper
-	e.runtime.Set("json", e.jsonFunc())
+	if err := e.runtime.Set("json", e.jsonFunc()); err != nil {
+		logger.Warn("failed to set JS runtime global 'json': %v", err)
+	}
 
 	// HTTP module
-	e.runtime.Set("http", e.httpModule())
+	if err := e.runtime.Set("http", e.httpModule()); err != nil {
+		logger.Warn("failed to set JS runtime global 'http': %v", err)
+	}
 
 	// Output object (for storing values to pass back to flow)
-	e.runtime.Set("output", e.output)
+	if err := e.runtime.Set("output", e.output); err != nil {
+		logger.Warn("failed to set JS runtime global 'output': %v", err)
+	}
 
 	// Maestro object
 	e.runtime.Set("maestro", e.maestroObject())
@@ -93,9 +100,15 @@ func (e *Engine) setupConsole() {
 	}
 
 	console := e.runtime.NewObject()
-	console.Set("log", makeConsoleFunc(""))
-	console.Set("error", makeConsoleFunc("ERROR:"))
-	console.Set("warn", makeConsoleFunc("WARN:"))
+	if err := console.Set("log", makeConsoleFunc("")); err != nil {
+		logger.Warn("failed to set console.log: %v", err)
+	}
+	if err := console.Set("error", makeConsoleFunc("ERROR:")); err != nil {
+		logger.Warn("failed to set console.error: %v", err)
+	}
+	if err := console.Set("warn", makeConsoleFunc("WARN:")); err != nil {
+		logger.Warn("failed to set console.warn: %v", err)
+	}
 	e.runtime.Set("console", console)
 }
 

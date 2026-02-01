@@ -770,19 +770,6 @@ func (d *Driver) resolveRelativeSelector(sel flow.Selector) (*core.ElementInfo, 
 	}, nil
 }
 
-// findElementRelative handles relative selectors with polling/retry.
-// Deprecated: Use findElementRelativeWithContext for new code.
-func (d *Driver) findElementRelative(sel flow.Selector, timeoutMs int) (*uiautomator2.Element, *core.ElementInfo, error) {
-	timeout := time.Duration(timeoutMs) * time.Millisecond
-	if timeout <= 0 {
-		timeout = time.Duration(DefaultFindTimeout) * time.Millisecond
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	return d.findElementRelativeWithContext(ctx, sel)
-}
-
 // findElementRelativeWithElements resolves a relative selector using pre-parsed elements.
 // Used for recursive resolution of nested relative selectors without refetching page source.
 func (d *Driver) findElementRelativeWithElements(sel flow.Selector, allElements []*ParsedElement) (*uiautomator2.Element, *core.ElementInfo, error) {
@@ -994,16 +981,6 @@ func (d *Driver) findElementByPageSourceOnceInternal(sel flow.Selector) (*core.E
 		Enabled: selected.Enabled,
 		Visible: selected.Displayed,
 	}, nil
-}
-
-// findElementByPageSource finds an element using page source parsing with polling.
-// Deprecated: Use findElementByPageSourceWithContext for new code.
-func (d *Driver) findElementByPageSource(sel flow.Selector, timeoutMs int) (*uiautomator2.Element, *core.ElementInfo, error) {
-	timeout := time.Duration(timeoutMs) * time.Millisecond
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	return d.findElementByPageSourceWithContext(ctx, sel)
 }
 
 // LocatorStrategy represents a single locator strategy with its value.

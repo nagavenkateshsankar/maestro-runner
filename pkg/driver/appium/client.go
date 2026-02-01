@@ -98,17 +98,21 @@ func (c *Client) Connect(capabilities map[string]interface{}) error {
 	if c.platform == "ios" {
 		// iOS XCUITest settings:
 		// - animationCoolOffTimeout: Don't wait for animations to finish (default 2s)
-		c.SetSettings(map[string]interface{}{
+		if err := c.SetSettings(map[string]interface{}{
 			"waitForIdleTimeout":      waitForIdleTimeout,
 			"animationCoolOffTimeout": 0,
-		})
+		}); err != nil {
+			logger.Warn("failed to configure iOS XCUITest settings: %v", err)
+		}
 	} else {
 		// Android UiAutomator2 settings:
 		// - waitForSelectorTimeout: Don't add extra wait when finding elements (default 0)
-		c.SetSettings(map[string]interface{}{
+		if err := c.SetSettings(map[string]interface{}{
 			"waitForIdleTimeout":     waitForIdleTimeout,
 			"waitForSelectorTimeout": 0,
-		})
+		}); err != nil {
+			logger.Warn("failed to configure Android UiAutomator2 settings: %v", err)
+		}
 
 		// Grant all permissions and launch app (autoLaunch was disabled above)
 		if androidAppPackage != "" {
@@ -120,12 +124,16 @@ func (c *Client) Connect(capabilities map[string]interface{}) error {
 				})
 			}
 			if androidAppActivity != "" {
-				c.ExecuteMobile("startActivity", map[string]interface{}{
+				if _, err := c.ExecuteMobile("startActivity", map[string]interface{}{
 					"appPackage":  androidAppPackage,
 					"appActivity": androidAppActivity,
-				})
+				}); err != nil {
+					logger.Warn("failed to start activity %s/%s: %v", androidAppPackage, androidAppActivity, err)
+				}
 			} else {
-				c.LaunchApp(androidAppPackage)
+				if err := c.LaunchApp(androidAppPackage); err != nil {
+					logger.Warn("failed to launch app %s: %v", androidAppPackage, err)
+				}
 			}
 		}
 	}
@@ -458,7 +466,9 @@ func (c *Client) TerminateApp(appID string) error {
 
 // ClearAppData clears app data.
 func (c *Client) ClearAppData(appID string) error {
-	c.TerminateApp(appID)
+	if err := c.TerminateApp(appID); err != nil {
+		logger.Warn("failed to terminate app %s before clearing data: %v", appID, err)
+	}
 
 	if c.platform == "ios" {
 		// iOS: use mobile: clearApp (only works on simulator)

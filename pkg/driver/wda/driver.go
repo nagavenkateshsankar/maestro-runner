@@ -539,16 +539,6 @@ func (d *Driver) findElementRelativeOnce(sel flow.Selector) (*core.ElementInfo, 
 	return d.resolveRelativeSelector(sel, allElements)
 }
 
-// findElementRelative handles relative selectors using page source with polling.
-// Deprecated: Use findElementRelativeWithContext for new code.
-func (d *Driver) findElementRelative(sel flow.Selector, timeoutMs int) (*core.ElementInfo, error) {
-	timeout := time.Duration(timeoutMs) * time.Millisecond
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	return d.findElementRelativeWithContext(ctx, sel)
-}
-
 // resolveRelativeSelector resolves a relative selector against parsed elements.
 func (d *Driver) resolveRelativeSelector(sel flow.Selector, allElements []*ParsedElement) (*core.ElementInfo, error) {
 	// Build base selector

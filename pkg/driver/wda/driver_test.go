@@ -1,6 +1,7 @@
 package wda
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -1313,7 +1314,7 @@ func TestFindElementRelativeBelow(t *testing.T) {
 		Below: &flow.Selector{Text: "Header"},
 	}
 
-	info, err := driver.findElementRelative(sel, 2000)
+	info, err := func() (*core.ElementInfo, error) { ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond); defer cancel(); return driver.findElementRelativeWithContext(ctx, sel) }()
 	if err != nil {
 		t.Fatalf("Expected success, got error: %v", err)
 	}
@@ -1333,7 +1334,7 @@ func TestFindElementRelativeAbove(t *testing.T) {
 		Above: &flow.Selector{Text: "BelowButton"},
 	}
 
-	info, err := driver.findElementRelative(sel, 2000)
+	info, err := func() (*core.ElementInfo, error) { ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond); defer cancel(); return driver.findElementRelativeWithContext(ctx, sel) }()
 	if err != nil {
 		t.Fatalf("Expected success, got error: %v", err)
 	}
@@ -1353,7 +1354,7 @@ func TestFindElementRelativeRightOf(t *testing.T) {
 		RightOf: &flow.Selector{Text: "LeftLabel"},
 	}
 
-	info, err := driver.findElementRelative(sel, 2000)
+	info, err := func() (*core.ElementInfo, error) { ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond); defer cancel(); return driver.findElementRelativeWithContext(ctx, sel) }()
 	if err != nil {
 		t.Fatalf("Expected success, got error: %v", err)
 	}
@@ -1373,7 +1374,7 @@ func TestFindElementRelativeLeftOf(t *testing.T) {
 		LeftOf: &flow.Selector{Text: "RightButton"},
 	}
 
-	info, err := driver.findElementRelative(sel, 2000)
+	info, err := func() (*core.ElementInfo, error) { ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond); defer cancel(); return driver.findElementRelativeWithContext(ctx, sel) }()
 	if err != nil {
 		t.Fatalf("Expected success, got error: %v", err)
 	}
@@ -1393,7 +1394,7 @@ func TestFindElementRelativeAnchorNotFound(t *testing.T) {
 		Below: &flow.Selector{Text: "NonExistentAnchor"},
 	}
 
-	_, err := driver.findElementRelative(sel, 500)
+	_, err := func() (*core.ElementInfo, error) { ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond); defer cancel(); return driver.findElementRelativeWithContext(ctx, sel) }()
 	if err == nil {
 		t.Error("Expected error when anchor not found")
 	}
@@ -1410,7 +1411,7 @@ func TestFindElementRelativeNoMatch(t *testing.T) {
 		Below: &flow.Selector{Text: "Header"},
 	}
 
-	_, err := driver.findElementRelative(sel, 500)
+	_, err := func() (*core.ElementInfo, error) { ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond); defer cancel(); return driver.findElementRelativeWithContext(ctx, sel) }()
 	if err == nil {
 		t.Error("Expected error when no element matches")
 	}
@@ -3767,7 +3768,7 @@ func TestFindElementRelativeParseError(t *testing.T) {
 		Below: &flow.Selector{Text: "Header"},
 	}
 
-	_, err := driver.findElementRelative(sel, 100)
+	_, err := func() (*core.ElementInfo, error) { ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond); defer cancel(); return driver.findElementRelativeWithContext(ctx, sel) }()
 	if err == nil {
 		t.Error("Expected error when XML parse fails")
 	}
@@ -3796,7 +3797,7 @@ func TestFindElementRelativeSourceError(t *testing.T) {
 		Below: &flow.Selector{Text: "Header"},
 	}
 
-	_, err := driver.findElementRelative(sel, 100)
+	_, err := func() (*core.ElementInfo, error) { ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond); defer cancel(); return driver.findElementRelativeWithContext(ctx, sel) }()
 	if err == nil {
 		t.Error("Expected error when source fails")
 	}

@@ -616,7 +616,7 @@ func (d *Driver) launchApp(step *flow.LaunchAppStep) *core.CommandResult {
 					launchArgs = append(launchArgs, fmt.Sprintf("-%s", key), "false")
 				}
 			default:
-				launchArgs = append(launchArgs, fmt.Sprintf("-%s", key), fmt.Sprintf("%v", v))
+				launchArgs = append(launchArgs, fmt.Sprintf("-%s", key), fmt.Sprint(v))
 			}
 		}
 	}

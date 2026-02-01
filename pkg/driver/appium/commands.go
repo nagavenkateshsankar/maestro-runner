@@ -9,6 +9,7 @@ import (
 
 	"github.com/devicelab-dev/maestro-runner/pkg/core"
 	"github.com/devicelab-dev/maestro-runner/pkg/flow"
+	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 )
 
 // Tap commands
@@ -296,7 +297,9 @@ func (d *Driver) eraseText(step *flow.EraseTextStep) *core.CommandResult {
 	// - Password fields that don't expose text
 	// - Custom input components
 	for i := 0; i < chars; i++ {
-		d.client.PressKeyCode(67) // Android KEYCODE_DEL
+		if err := d.client.PressKeyCode(67); err != nil { // Android KEYCODE_DEL
+			logger.Warn("failed to press delete key on iteration %d: %v", i, err)
+		}
 	}
 
 	return successResult(fmt.Sprintf("Erased %d characters", chars), nil)
@@ -364,7 +367,9 @@ func (d *Driver) launchApp(step *flow.LaunchAppStep) *core.CommandResult {
 
 	// Stop app first if requested (default: true)
 	if step.StopApp == nil || *step.StopApp {
-		_ = d.client.TerminateApp(appID)
+		if err := d.client.TerminateApp(appID); err != nil {
+			logger.Warn("failed to stop app %s before relaunch: %v", appID, err)
+		}
 	}
 
 	// Clear state if requested
@@ -730,19 +735,23 @@ func parsePercentageCoords(coord string) (float64, float64, error) {
 func (d *Driver) grantPermissions(appID string, permissions map[string]string) {
 	if len(permissions) > 0 {
 		for perm := range permissions {
-			d.client.ExecuteMobile("shell", map[string]interface{}{
+			if _, err := d.client.ExecuteMobile("shell", map[string]interface{}{
 				"command": "pm",
 				"args":    []string{"grant", appID, perm},
-			})
+			}); err != nil {
+				logger.Warn("failed to grant permission %s to %s: %v", perm, appID, err)
+			}
 		}
 		return
 	}
 
 	for _, perm := range getAllPermissions() {
-		d.client.ExecuteMobile("shell", map[string]interface{}{
+		if _, err := d.client.ExecuteMobile("shell", map[string]interface{}{
 			"command": "pm",
 			"args":    []string{"grant", appID, perm},
-		})
+		}); err != nil {
+			logger.Warn("failed to grant permission %s to %s: %v", perm, appID, err)
+		}
 	}
 }
 

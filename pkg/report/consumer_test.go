@@ -10,8 +10,12 @@ func setupTestReport(t *testing.T) string {
 	tmpDir := t.TempDir()
 
 	// Create directory structure
-	os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755)
-	os.MkdirAll(filepath.Join(tmpDir, "assets", "flow-000"), 0o755)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmpDir, "assets", "flow-000"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Create index
 	index := &Index{
@@ -29,7 +33,9 @@ func setupTestReport(t *testing.T) string {
 		},
 		Summary: Summary{Total: 1, Running: 1},
 	}
-	atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Create flow detail
 	flow := &FlowDetail{
@@ -40,7 +46,9 @@ func setupTestReport(t *testing.T) string {
 			{Index: 1, Type: "tapOn", Status: StatusRunning},
 		},
 	}
-	atomicWriteJSON(filepath.Join(tmpDir, "flows", "flow-000.json"), flow)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "flows", "flow-000.json"), flow); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	return tmpDir
 }
@@ -81,7 +89,9 @@ func TestConsumer_Poll_NoChange(t *testing.T) {
 	c := NewConsumer(tmpDir)
 
 	// First poll
-	c.Poll()
+	if _, _, err := c.Poll(); err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
 
 	// Second poll with no changes
 	changed, index, err := c.Poll()
@@ -102,14 +112,18 @@ func TestConsumer_Poll_WithChange(t *testing.T) {
 	c := NewConsumer(tmpDir)
 
 	// First poll
-	c.Poll()
+	if _, _, err := c.Poll(); err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
 
 	// Update the index
 	index, _ := ReadIndex(filepath.Join(tmpDir, "report.json"))
 	index.UpdateSeq = 2
 	index.Flows[0].UpdateSeq = 2
 	index.Flows[0].Status = StatusPassed
-	atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Second poll should detect change
 	changed, _, err := c.Poll()
@@ -158,7 +172,9 @@ func TestConsumer_Reset(t *testing.T) {
 	c := NewConsumer(tmpDir)
 
 	// First poll
-	c.Poll()
+	if _, _, err := c.Poll(); err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
 
 	// Reset
 	c.Reset()
@@ -171,7 +187,10 @@ func TestConsumer_Reset(t *testing.T) {
 	}
 
 	// Poll should return changes again
-	changed, _, _ := c.Poll()
+	changed, _, err := c.Poll()
+	if err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
 	if len(changed) != 1 {
 		t.Errorf("len(changed) = %d, want 1", len(changed))
 	}
@@ -198,7 +217,9 @@ func TestReadReport(t *testing.T) {
 
 func TestRecover_RunningFlow(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Create index with running flow
 	index := &Index{
@@ -214,7 +235,9 @@ func TestRecover_RunningFlow(t *testing.T) {
 		},
 		Summary: Summary{Total: 1, Running: 1},
 	}
-	atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Create flow with completed commands
 	flow := &FlowDetail{
@@ -224,7 +247,9 @@ func TestRecover_RunningFlow(t *testing.T) {
 			{Index: 1, Status: StatusPassed},
 		},
 	}
-	atomicWriteJSON(filepath.Join(tmpDir, "flows", "flow-000.json"), flow)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "flows", "flow-000.json"), flow); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Recover
 	err := Recover(tmpDir)
@@ -244,7 +269,9 @@ func TestRecover_RunningFlow(t *testing.T) {
 
 func TestRecover_InterruptedFlow(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Create index with running flow
 	index := &Index{
@@ -259,7 +286,9 @@ func TestRecover_InterruptedFlow(t *testing.T) {
 			},
 		},
 	}
-	atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Create flow with some commands still running
 	flow := &FlowDetail{
@@ -270,7 +299,9 @@ func TestRecover_InterruptedFlow(t *testing.T) {
 			{Index: 2, Status: StatusPending},
 		},
 	}
-	atomicWriteJSON(filepath.Join(tmpDir, "flows", "flow-000.json"), flow)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "flows", "flow-000.json"), flow); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Recover
 	err := Recover(tmpDir)
@@ -290,7 +321,9 @@ func TestRecover_InterruptedFlow(t *testing.T) {
 
 func TestRecover_MissingFlowFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Create index with running flow but no flow file
 	index := &Index{
@@ -305,7 +338,9 @@ func TestRecover_MissingFlowFile(t *testing.T) {
 			},
 		},
 	}
-	atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Recover (no flow file exists)
 	err := Recover(tmpDir)
@@ -322,7 +357,9 @@ func TestRecover_MissingFlowFile(t *testing.T) {
 
 func TestRecover_NoChangesNeeded(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "flows"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Create index with completed flow
 	index := &Index{
@@ -339,7 +376,9 @@ func TestRecover_NoChangesNeeded(t *testing.T) {
 		Summary: Summary{Total: 1, Passed: 1},
 	}
 	originalSeq := index.UpdateSeq
-	atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index)
+	if err := atomicWriteJSON(filepath.Join(tmpDir, "report.json"), index); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	// Recover should not change anything
 	err := Recover(tmpDir)

@@ -141,7 +141,7 @@ func ParsePageSource(xmlData string) ([]*ParsedElement, error) {
 		}
 	}
 
-	if parseErr != nil && len(elements) == 0 {
+	if parseErr != nil && len(elements) == 0 { //nolint:gosimple // parseErr distinguishes parse failure from empty source
 		return nil, parseErr
 	}
 

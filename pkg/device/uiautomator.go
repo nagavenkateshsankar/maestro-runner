@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 )
 
 // UIAutomator2 package names
@@ -52,7 +54,9 @@ func (d *AndroidDevice) StartUIAutomator2(cfg UIAutomator2Config) error {
 	}
 
 	// Stop any existing instance
-	d.StopUIAutomator2()
+	if err := d.StopUIAutomator2(); err != nil {
+		logger.Warn("failed to stop existing UIAutomator2 instance: %v", err)
+	}
 
 	// Set up forwarding based on OS
 	if runtime.GOOS == "windows" {
@@ -79,7 +83,9 @@ func (d *AndroidDevice) StartUIAutomator2(cfg UIAutomator2Config) error {
 
 	// Wait for server to be ready
 	if err := d.waitForUIAutomator2Ready(cfg.Timeout); err != nil {
-		d.StopUIAutomator2()
+		if stopErr := d.StopUIAutomator2(); stopErr != nil {
+			logger.Warn("failed to stop UIAutomator2 after startup timeout: %v", stopErr)
+		}
 		return err
 	}
 
@@ -137,31 +143,43 @@ func findFreePort(start, end int) (int, error) {
 // StopUIAutomator2 stops the UIAutomator2 server.
 func (d *AndroidDevice) StopUIAutomator2() error {
 	// Force stop both packages - this should kill the instrumentation runner
-	d.Shell("am force-stop " + UIAutomator2Server)
-	d.Shell("am force-stop " + UIAutomator2Test)
+	if _, err := d.Shell("am force-stop " + UIAutomator2Server); err != nil {
+		logger.Warn("failed to force-stop %s: %v", UIAutomator2Server, err)
+	}
+	if _, err := d.Shell("am force-stop " + UIAutomator2Test); err != nil {
+		logger.Warn("failed to force-stop %s: %v", UIAutomator2Test, err)
+	}
 
 	// Give processes time to die
 	time.Sleep(300 * time.Millisecond)
 
 	// Clean up socket (Linux/Mac) - always try default path even if socketPath not set
 	if d.socketPath != "" {
-		d.RemoveSocketForward(d.socketPath)
+		if err := d.RemoveSocketForward(d.socketPath); err != nil {
+			logger.Warn("failed to remove socket forward for %s: %v", d.socketPath, err)
+		}
 		os.Remove(d.socketPath)
 		d.socketPath = ""
 	}
 	// Also clean up default socket path (in case of stale from previous run)
 	defaultSocket := d.DefaultSocketPath()
-	d.RemoveSocketForward(defaultSocket)
+	if err := d.RemoveSocketForward(defaultSocket); err != nil {
+		logger.Warn("failed to remove default socket forward for %s: %v", defaultSocket, err)
+	}
 	os.Remove(defaultSocket)
 
 	// Clean up port forward (Windows)
 	if d.localPort != 0 {
-		d.RemoveForward(d.localPort)
+		if err := d.RemoveForward(d.localPort); err != nil {
+			logger.Warn("failed to remove port forward for port %d: %v", d.localPort, err)
+		}
 		d.localPort = 0
 	}
 
 	// Remove any adb forward for the device port (cleans up stale forwards)
-	d.adb("forward", "--remove", fmt.Sprintf("tcp:%d", 6790))
+	if _, err := d.adb("forward", "--remove", fmt.Sprintf("tcp:%d", 6790)); err != nil {
+		logger.Warn("failed to remove adb forward for tcp:6790: %v", err)
+	}
 
 	return nil
 }

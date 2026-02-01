@@ -36,12 +36,15 @@ func TestStatus(t *testing.T) {
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"ready":   true,
 				"message": "ready",
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -56,12 +59,15 @@ func TestStatus(t *testing.T) {
 
 func TestStatusNotReady(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"ready":   false,
 				"message": "not ready",
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -84,14 +90,20 @@ func TestCreateSession(t *testing.T) {
 		}
 
 		var req SessionRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Capabilities.PlatformName != "Android" {
 			t.Errorf("expected Android, got %s", req.Capabilities.PlatformName)
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"sessionId": "test-session-123",
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -106,11 +118,14 @@ func TestCreateSession(t *testing.T) {
 
 func TestCreateSessionAlternateFormat(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"sessionId": "alt-session-456",
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -125,7 +140,10 @@ func TestCreateSessionAlternateFormat(t *testing.T) {
 
 func TestCreateSessionNoSessionID(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -140,12 +158,15 @@ func TestGetSession(t *testing.T) {
 		if r.URL.Path != "/session/test-session" {
 			t.Errorf("expected /session/test-session, got %s", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"platformName": "Android",
 				"deviceName":   "emulator",
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -179,7 +200,10 @@ func TestDeleteSession(t *testing.T) {
 		if r.Method != "DELETE" {
 			t.Errorf("expected DELETE, got %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -230,7 +254,10 @@ func TestClose(t *testing.T) {
 	called := false
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
 		called = true
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -247,12 +274,15 @@ func TestClose(t *testing.T) {
 func TestRequestError(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"error":   "unknown error",
 				"message": "something went wrong",
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -265,7 +295,9 @@ func TestRequestError(t *testing.T) {
 func TestRequestErrorNonJSON(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal Server Error"))
+		if _, err := w.Write([]byte("Internal Server Error")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -300,7 +332,9 @@ func TestNewClientTCP(t *testing.T) {
 
 func TestStatusUnmarshalError(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -312,7 +346,9 @@ func TestStatusUnmarshalError(t *testing.T) {
 
 func TestCreateSessionUnmarshalError(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -324,7 +360,9 @@ func TestCreateSessionUnmarshalError(t *testing.T) {
 
 func TestGetSessionUnmarshalError(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -352,7 +390,10 @@ type unmarshalableType struct {
 
 func TestRequestMarshalError(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -395,11 +436,14 @@ func TestGetSessionRequestError(t *testing.T) {
 func TestCreateSessionAltFormatEmptySessionID(t *testing.T) {
 	client, server := newTestClient(func(w http.ResponseWriter, r *http.Request) {
 		// Return alternate format with empty sessionId
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"sessionId": "",
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 

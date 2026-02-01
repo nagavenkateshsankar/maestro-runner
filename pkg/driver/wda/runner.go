@@ -15,6 +15,7 @@ import (
 	goios "github.com/danielpaulus/go-ios/ios"
 	"github.com/danielpaulus/go-ios/ios/forward"
 	"github.com/devicelab-dev/maestro-runner/pkg/config"
+	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 )
 
 const (
@@ -287,7 +288,9 @@ func (r *Runner) Stop() {
 		r.portForwardListener = nil
 	}
 	if r.cmd != nil && r.cmd.Process != nil {
-		r.cmd.Process.Kill()
+		if err := r.cmd.Process.Kill(); err != nil {
+			logger.Warn("failed to kill WDA process: %v", err)
+		}
 		r.cmd = nil
 	}
 	if r.logFile != nil {

@@ -16,7 +16,10 @@ func TestBack(t *testing.T) {
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -33,11 +36,17 @@ func TestPressKeyCode(t *testing.T) {
 		}
 
 		var req KeyCodeRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.KeyCode != KeyCodeHome {
 			t.Errorf("expected keycode %d, got %d", KeyCodeHome, req.KeyCode)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -54,11 +63,17 @@ func TestLongPressKeyCode(t *testing.T) {
 		}
 
 		var req KeyCodeRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.KeyCode != KeyCodePower {
 			t.Errorf("expected keycode %d, got %d", KeyCodePower, req.KeyCode)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -73,7 +88,10 @@ func TestOpenNotifications(t *testing.T) {
 		if !strings.Contains(r.URL.Path, "/appium/device/open_notifications") {
 			t.Errorf("expected /appium/device/open_notifications, got %s", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -90,9 +108,12 @@ func TestGetClipboard(t *testing.T) {
 		}
 		// Base64 encoded "clipboard text"
 		encoded := base64.StdEncoding.EncodeToString([]byte("clipboard text"))
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": encoded,
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -107,9 +128,12 @@ func TestGetClipboard(t *testing.T) {
 
 func TestGetClipboardNotBase64(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": "plain text not base64!!!",
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -124,9 +148,12 @@ func TestGetClipboardNotBase64(t *testing.T) {
 
 func TestGetClipboardEmpty(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": nil,
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -146,7 +173,10 @@ func TestSetClipboard(t *testing.T) {
 		}
 
 		var req ClipboardRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.ContentType != "plaintext" {
 			t.Errorf("expected plaintext, got %s", req.ContentType)
 		}
@@ -154,7 +184,10 @@ func TestSetClipboard(t *testing.T) {
 		if string(decoded) != "new clipboard" {
 			t.Errorf("expected 'new clipboard', got %s", string(decoded))
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -172,7 +205,7 @@ func TestGetDeviceInfo(t *testing.T) {
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"androidId":       "abc123",
 				"manufacturer":    "Google",
@@ -184,7 +217,10 @@ func TestGetDeviceInfo(t *testing.T) {
 				"realDisplaySize": "1080x2400",
 				"displayDensity":  420,
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -208,12 +244,15 @@ func TestGetBatteryInfo(t *testing.T) {
 		if !strings.Contains(r.URL.Path, "/appium/device/battery_info") {
 			t.Errorf("expected /appium/device/battery_info, got %s", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"level":  0.85,
 				"status": 2,
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -240,9 +279,12 @@ func TestScreenshot(t *testing.T) {
 		// Base64 encoded PNG header
 		pngBytes := []byte{0x89, 0x50, 0x4E, 0x47}
 		encoded := base64.StdEncoding.EncodeToString(pngBytes)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": encoded,
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -257,9 +299,12 @@ func TestScreenshot(t *testing.T) {
 
 func TestScreenshotInvalidResponse(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": 12345,
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -274,9 +319,12 @@ func TestSource(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/source") {
 			t.Errorf("expected /source suffix, got %s", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": "<hierarchy><node/></hierarchy>",
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -297,9 +345,12 @@ func TestGetOrientation(t *testing.T) {
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": "PORTRAIT",
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -322,11 +373,17 @@ func TestSetOrientation(t *testing.T) {
 		}
 
 		var req OrientationRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Orientation != "LANDSCAPE" {
 			t.Errorf("expected LANDSCAPE, got %s", req.Orientation)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -341,9 +398,12 @@ func TestGetAlertText(t *testing.T) {
 		if !strings.Contains(r.URL.Path, "/alert/text") {
 			t.Errorf("expected /alert/text, got %s", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": "Are you sure?",
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -364,7 +424,10 @@ func TestAcceptAlert(t *testing.T) {
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -379,7 +442,10 @@ func TestDismissAlert(t *testing.T) {
 		if !strings.Contains(r.URL.Path, "/alert/dismiss") {
 			t.Errorf("expected /alert/dismiss, got %s", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -397,12 +463,15 @@ func TestGetSettings(t *testing.T) {
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"value": map[string]interface{}{
 				"waitForIdleTimeout":     10000,
 				"waitForSelectorTimeout": 5000,
 			},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -425,11 +494,17 @@ func TestUpdateSettings(t *testing.T) {
 		}
 
 		var req SettingsRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if req.Settings["waitForIdleTimeout"] != float64(5000) {
 			t.Errorf("expected 5000, got %v", req.Settings["waitForIdleTimeout"])
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 	defer server.Close()
 
@@ -443,7 +518,9 @@ func TestUpdateSettings(t *testing.T) {
 
 func TestGetClipboardUnmarshalError(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -455,7 +532,9 @@ func TestGetClipboardUnmarshalError(t *testing.T) {
 
 func TestGetDeviceInfoUnmarshalError(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -467,7 +546,9 @@ func TestGetDeviceInfoUnmarshalError(t *testing.T) {
 
 func TestGetBatteryInfoUnmarshalError(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -479,7 +560,9 @@ func TestGetBatteryInfoUnmarshalError(t *testing.T) {
 
 func TestScreenshotUnmarshalError(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -491,7 +574,9 @@ func TestScreenshotUnmarshalError(t *testing.T) {
 
 func TestSourceUnmarshalError(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -503,7 +588,9 @@ func TestSourceUnmarshalError(t *testing.T) {
 
 func TestGetOrientationUnmarshalError(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -515,7 +602,9 @@ func TestGetOrientationUnmarshalError(t *testing.T) {
 
 func TestGetAlertTextUnmarshalError(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 
@@ -527,7 +616,9 @@ func TestGetAlertTextUnmarshalError(t *testing.T) {
 
 func TestGetSettingsUnmarshalError(t *testing.T) {
 	client, server := newTestClientWithSession(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			return
+		}
 	})
 	defer server.Close()
 

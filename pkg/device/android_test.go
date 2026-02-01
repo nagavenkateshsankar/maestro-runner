@@ -227,7 +227,9 @@ func TestAndroidDevice_RemoveAllForwards(t *testing.T) {
 
 	// Create a forward first
 	port, _ := findFreePort(7101, 7200)
-	device.Forward(port, 6790)
+	if err := device.Forward(port, 6790); err != nil {
+		t.Logf("Forward setup: %v", err)
+	}
 
 	// Remove all
 	if err := device.RemoveAllForwards(); err != nil {

@@ -535,9 +535,13 @@ func TestFindEmulatorBinary_WithAndroidHomeDirExists(t *testing.T) {
 	// Create temp directory with emulator binary
 	tmpDir := t.TempDir()
 	emulatorDir := tmpDir + "/emulator"
-	os.MkdirAll(emulatorDir, 0o755)
+	if err := os.MkdirAll(emulatorDir, 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 	emulatorPath := emulatorDir + "/emulator"
-	os.WriteFile(emulatorPath, []byte("#!/bin/sh\necho test"), 0o755)
+	if err := os.WriteFile(emulatorPath, []byte("#!/bin/sh\necho test"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	os.Setenv("ANDROID_HOME", tmpDir)
 	os.Unsetenv("ANDROID_SDK_ROOT")
@@ -568,9 +572,13 @@ func TestFindEmulatorBinary_OldLayout(t *testing.T) {
 	// Create temp directory with old-layout emulator binary
 	tmpDir := t.TempDir()
 	toolsDir := tmpDir + "/tools"
-	os.MkdirAll(toolsDir, 0o755)
+	if err := os.MkdirAll(toolsDir, 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 	emulatorPath := toolsDir + "/emulator"
-	os.WriteFile(emulatorPath, []byte("#!/bin/sh\necho test"), 0o755)
+	if err := os.WriteFile(emulatorPath, []byte("#!/bin/sh\necho test"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	os.Setenv("ANDROID_HOME", tmpDir)
 	os.Unsetenv("ANDROID_SDK_ROOT")
@@ -604,9 +612,13 @@ func TestFindAVDManagerBinary_NewLayout(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	avdDir := tmpDir + "/cmdline-tools/latest/bin"
-	os.MkdirAll(avdDir, 0o755)
+	if err := os.MkdirAll(avdDir, 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 	avdPath := avdDir + "/avdmanager"
-	os.WriteFile(avdPath, []byte("#!/bin/sh\necho test"), 0o755)
+	if err := os.WriteFile(avdPath, []byte("#!/bin/sh\necho test"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	os.Setenv("ANDROID_HOME", tmpDir)
 	os.Unsetenv("ANDROID_SDK_ROOT")
@@ -636,9 +648,13 @@ func TestFindAVDManagerBinary_OldLayout(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	avdDir := tmpDir + "/tools/bin"
-	os.MkdirAll(avdDir, 0o755)
+	if err := os.MkdirAll(avdDir, 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 	avdPath := avdDir + "/avdmanager"
-	os.WriteFile(avdPath, []byte("#!/bin/sh\necho test"), 0o755)
+	if err := os.WriteFile(avdPath, []byte("#!/bin/sh\necho test"), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
 	os.Setenv("ANDROID_HOME", tmpDir)
 	os.Unsetenv("ANDROID_SDK_ROOT")

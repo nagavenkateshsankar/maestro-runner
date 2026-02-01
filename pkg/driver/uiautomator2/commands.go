@@ -10,6 +10,7 @@ import (
 
 	"github.com/devicelab-dev/maestro-runner/pkg/core"
 	"github.com/devicelab-dev/maestro-runner/pkg/flow"
+	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 	"github.com/devicelab-dev/maestro-runner/pkg/uiautomator2"
 )
 
@@ -770,7 +771,9 @@ func (d *Driver) launchApp(step *flow.LaunchAppStep) *core.CommandResult {
 
 	// Stop app first if requested (default: true)
 	if step.StopApp == nil || *step.StopApp {
-		d.device.Shell("am force-stop " + appID)
+		if _, err := d.device.Shell("am force-stop " + appID); err != nil {
+			logger.Warn("failed to force-stop app %s before launch: %v", appID, err)
+		}
 	}
 
 	// Clear state if requested
@@ -887,23 +890,6 @@ func (d *Driver) killApp(step *flow.KillAppStep) *core.CommandResult {
 	}
 
 	return successResult(fmt.Sprintf("Killed app: %s", appID), nil)
-}
-
-func (d *Driver) setPermissions(step *flow.SetPermissionsStep) *core.CommandResult {
-	appID := step.AppID
-	if appID == "" {
-		return errorResult(fmt.Errorf("no appId specified"), "No app ID for permissions")
-	}
-
-	if d.device == nil {
-		return errorResult(fmt.Errorf("device not configured"), "setPermissions requires device access")
-	}
-
-	if len(step.Permissions) == 0 {
-		return errorResult(fmt.Errorf("no permissions specified"), "No permissions to set")
-	}
-
-	return d.applyPermissions(appID, step.Permissions)
 }
 
 // applyPermissions applies permission settings to an app.
@@ -1327,8 +1313,10 @@ func (d *Driver) stopRecording(_ *flow.StopRecordingStep) *core.CommandResult {
 		return errorResult(fmt.Errorf("device not configured"), "stopRecording requires device access")
 	}
 
-	// Kill screenrecord process (ignore error - process might have already stopped)
-	_, _ = d.device.Shell("pkill -INT screenrecord")
+	// Kill screenrecord process (may have already stopped)
+	if _, err := d.device.Shell("pkill -INT screenrecord"); err != nil {
+		logger.Warn("failed to stop screenrecord process: %v", err)
+	}
 
 	// Wait for file to be written
 	time.Sleep(500 * time.Millisecond)
