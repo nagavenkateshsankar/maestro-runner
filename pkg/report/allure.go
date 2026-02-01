@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/devicelab-dev/maestro-runner/pkg/logger"
 )
 
 // Allure result schema types.
@@ -317,7 +319,9 @@ func copyFile(src, dst string) {
 	}
 	defer out.Close()
 
-	io.Copy(out, in)
+	if _, err := io.Copy(out, in); err != nil {
+		logger.Warn("failed to copy %s to %s: %v", src, dst, err)
+	}
 }
 
 // mapAllureStatus maps report Status to Allure status string.

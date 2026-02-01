@@ -878,47 +878,6 @@ func TestGetFirstDevice_EmptySlice(t *testing.T) {
 	}
 }
 
-// Tests for cloneCapabilities
-
-func TestCloneCapabilities_Nil(t *testing.T) {
-	result := cloneCapabilities(nil)
-	if result == nil {
-		t.Error("cloneCapabilities(nil) should return non-nil map")
-	}
-	if len(result) != 0 {
-		t.Errorf("cloneCapabilities(nil) should return empty map, got %v", result)
-	}
-}
-
-func TestCloneCapabilities_Empty(t *testing.T) {
-	caps := make(map[string]interface{})
-	result := cloneCapabilities(caps)
-	if len(result) != 0 {
-		t.Errorf("cloneCapabilities({}) should return empty map, got %v", result)
-	}
-}
-
-func TestCloneCapabilities_WithValues(t *testing.T) {
-	caps := map[string]interface{}{
-		"platformName":          "Android",
-		"appium:automationName": "UiAutomator2",
-	}
-	result := cloneCapabilities(caps)
-
-	if result["platformName"] != "Android" {
-		t.Errorf("expected platformName=Android, got %v", result["platformName"])
-	}
-	if result["appium:automationName"] != "UiAutomator2" {
-		t.Errorf("expected automationName=UiAutomator2, got %v", result["appium:automationName"])
-	}
-
-	// Verify it is a true copy (modifying clone does not affect original)
-	result["platformName"] = "iOS"
-	if caps["platformName"] != "Android" {
-		t.Error("modifying clone should not affect original")
-	}
-}
-
 // Tests for parseDevices
 
 func TestParseDevices_SingleDevice(t *testing.T) {

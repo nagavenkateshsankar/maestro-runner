@@ -988,7 +988,7 @@ func executeFlowsWithMode(cfg *RunConfig, flows []flow.Flow, needsParallel bool,
 		if needsParallel {
 			return nil, fmt.Errorf("parallel execution not yet supported for Appium driver")
 		}
-		return executeFlowsWithPerFlowSession(cfg, flows)
+		return executeAppiumSingleSession(cfg, flows)
 	}
 
 	if needsParallel {
@@ -1270,153 +1270,36 @@ func loadCapabilities(capsFile string) (map[string]interface{}, error) {
 	return caps, nil
 }
 
-// flowUsesClearState checks if a flow uses clearState in any of its steps.
-// This includes launchApp with clearState:true and standalone clearState steps.
-func flowUsesClearState(f *flow.Flow) bool {
-	return checkStepsForClearState(f.Steps)
-}
-
-// checkStepsForClearState recursively checks steps for clearState usage.
-func checkStepsForClearState(steps []flow.Step) bool {
-	for _, step := range steps {
-		switch s := step.(type) {
-		case *flow.LaunchAppStep:
-			if s.ClearState {
-				return true
-			}
-		case *flow.ClearStateStep:
-			return true
-		case *flow.RepeatStep:
-			if checkStepsForClearState(s.Steps) {
-				return true
-			}
-		case *flow.RetryStep:
-			if checkStepsForClearState(s.Steps) {
-				return true
-			}
-		case *flow.RunFlowStep:
-			if checkStepsForClearState(s.Steps) {
-				return true
-			}
-			// Note: We don't load external flow files here - that would be too expensive.
-			// For external runFlow files, clearState will be handled at runtime.
-		}
+// executeAppiumSingleSession runs all flows using a single Appium session.
+// clearState is handled in-session via terminate + pm clear (same as UIA2).
+func executeAppiumSingleSession(cfg *RunConfig, flows []flow.Flow) (*executor.RunResult, error) {
+	driver, cleanup, err := createAppiumDriver(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Appium driver: %w", err)
 	}
-	return false
-}
+	defer cleanup()
 
-// executeFlowsWithPerFlowSession runs each flow with its own Appium session.
-// This allows per-flow capability configuration (e.g., noReset based on clearState usage).
-func executeFlowsWithPerFlowSession(cfg *RunConfig, flows []flow.Flow) (*executor.RunResult, error) {
-	results := make([]executor.FlowResult, len(flows))
-	var totalDuration int64
+	deviceInfo := buildDeviceReport(driver)
 
-	for i, f := range flows {
-		// Analyze flow for clearState usage
-		usesClearState := flowUsesClearState(&f)
+	runner := executor.New(driver, executor.RunnerConfig{
+		OutputDir:          cfg.OutputDir,
+		Parallelism:        0,
+		Artifacts:          executor.ArtifactOnFailure,
+		Device:             deviceInfo,
+		App:                buildAppReport(driver),
+		RunnerVersion:      Version,
+		DriverName:         "appium",
+		Env:                cfg.Env,
+		WaitForIdleTimeout: cfg.WaitForIdleTimeout,
+		DeviceInfo:         &deviceInfo,
+		OnFlowStart:        onFlowStart,
+		OnStepComplete:     onStepComplete,
+		OnNestedStep:       onNestedStep,
+		OnNestedFlowStart:  onNestedFlowStart,
+		OnFlowEnd:          onFlowEnd,
+	})
 
-		// Create per-flow capabilities
-		flowCaps := cloneCapabilities(cfg.Capabilities)
-
-		// Add noReset: false if flow uses clearState (reset app at session start)
-		if usesClearState {
-			flowCaps["appium:noReset"] = false
-			fmt.Printf("  %s→%s Flow uses clearState, setting noReset=false\n", color(colorCyan), color(colorReset))
-		}
-
-		// Create driver for this flow
-		flowCfg := *cfg
-		flowCfg.Capabilities = flowCaps
-
-		// Apply flow-level waitForIdleTimeout override if specified
-		// Priority: Flow config > CLI flag > Workspace config > Cap file > Default
-		if f.Config.WaitForIdleTimeout != nil {
-			flowCfg.WaitForIdleTimeout = *f.Config.WaitForIdleTimeout
-		}
-		driver, cleanup, err := createAppiumDriver(&flowCfg)
-		if err != nil {
-			// Record failure and continue to next flow
-			results[i] = executor.FlowResult{
-				ID:     fmt.Sprintf("flow-%d", i),
-				Name:   f.Config.Name,
-				Status: report.StatusFailed,
-				Error:  fmt.Sprintf("failed to create driver: %v", err),
-			}
-			continue
-		}
-
-		// Create executor for single flow
-		runner := executor.New(driver, executor.RunnerConfig{
-			OutputDir:          cfg.OutputDir,
-			Parallelism:        0,
-			Artifacts:          executor.ArtifactOnFailure,
-			Device:             buildDeviceReport(driver),
-			App:                buildAppReport(driver),
-			RunnerVersion:      Version,
-			DriverName:         "appium",
-			Env:                cfg.Env,
-			WaitForIdleTimeout: cfg.WaitForIdleTimeout,
-			OnFlowStart:        func(flowIdx, totalFlows int, name, file string) { onFlowStart(i, len(flows), name, file) },
-			OnStepComplete:     onStepComplete,
-			OnNestedStep:       onNestedStep,
-			OnNestedFlowStart:  onNestedFlowStart,
-			OnFlowEnd:          onFlowEnd,
-		})
-
-		// Run single flow
-		result, err := runner.Run(context.Background(), []flow.Flow{f})
-		cleanup() // Clean up session after flow
-
-		if err != nil {
-			results[i] = executor.FlowResult{
-				ID:     fmt.Sprintf("flow-%d", i),
-				Name:   f.Config.Name,
-				Status: report.StatusFailed,
-				Error:  err.Error(),
-			}
-		} else if len(result.FlowResults) > 0 {
-			results[i] = result.FlowResults[0]
-			totalDuration += result.Duration
-		}
-	}
-
-	// Build aggregated result
-	runResult := &executor.RunResult{
-		TotalFlows:  len(flows),
-		FlowResults: results,
-		Duration:    totalDuration,
-	}
-
-	for _, fr := range results {
-		switch fr.Status {
-		case report.StatusPassed:
-			runResult.PassedFlows++
-		case report.StatusFailed:
-			runResult.FailedFlows++
-		case report.StatusSkipped:
-			runResult.SkippedFlows++
-		}
-	}
-
-	if runResult.FailedFlows > 0 {
-		runResult.Status = report.StatusFailed
-	} else {
-		runResult.Status = report.StatusPassed
-	}
-
-	return runResult, nil
-}
-
-// cloneCapabilities creates a copy of capabilities map.
-func cloneCapabilities(caps map[string]interface{}) map[string]interface{} {
-	if caps == nil {
-		return make(map[string]interface{})
-	}
-	cloned := make(map[string]interface{}, len(caps))
-	for k, v := range caps {
-		cloned[k] = v
-	}
-	return cloned
+	return runner.Run(context.Background(), flows)
 }
 
 // createDriver creates the appropriate driver for the platform.

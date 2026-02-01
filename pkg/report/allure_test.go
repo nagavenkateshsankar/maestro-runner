@@ -157,7 +157,9 @@ func TestGenerateAllureFailedFlow(t *testing.T) {
 
 	data, _ := os.ReadFile(filepath.Join(tmpDir, "allure-results", "flow-000-result.json"))
 	var result AllureResult
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
 
 	if result.Status != "failed" {
 		t.Errorf("Status = %q, want failed", result.Status)
@@ -203,7 +205,9 @@ func TestGenerateAllureSkippedFlow(t *testing.T) {
 
 	data, _ := os.ReadFile(filepath.Join(tmpDir, "allure-results", "flow-000-result.json"))
 	var result AllureResult
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
 
 	if result.Status != "skipped" {
 		t.Errorf("Status = %q, want skipped", result.Status)
@@ -280,7 +284,9 @@ func TestGenerateAllureMixedFlows(t *testing.T) {
 	} {
 		data, _ := os.ReadFile(filepath.Join(allureDir, tc.id+"-result.json"))
 		var result AllureResult
-		json.Unmarshal(data, &result)
+		if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
 		if result.Status != tc.status {
 			t.Errorf("%s status = %q, want %q", tc.id, result.Status, tc.status)
 		}
@@ -329,7 +335,9 @@ func TestAllureNestedSteps(t *testing.T) {
 
 	data, _ := os.ReadFile(filepath.Join(tmpDir, "allure-results", "flow-000-result.json"))
 	var result AllureResult
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
 
 	if len(result.Steps) != 1 {
 		t.Fatalf("expected 1 top step, got %d", len(result.Steps))
@@ -355,9 +363,15 @@ func TestAllureScreenshotAttachments(t *testing.T) {
 
 	// Create fake screenshots
 	assetsDir := filepath.Join(tmpDir, "assets", "flow-000")
-	os.MkdirAll(assetsDir, 0o755)
-	os.WriteFile(filepath.Join(assetsDir, "cmd-000-before.png"), []byte("fake-png-before"), 0o644)
-	os.WriteFile(filepath.Join(assetsDir, "cmd-000-after.png"), []byte("fake-png-after"), 0o644)
+	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetsDir, "cmd-000-before.png"), []byte("fake-png-before"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetsDir, "cmd-000-after.png"), []byte("fake-png-after"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	index := &Index{
 		Version: "1.0.0", Status: StatusPassed,
@@ -391,7 +405,9 @@ func TestAllureScreenshotAttachments(t *testing.T) {
 
 	data, _ := os.ReadFile(filepath.Join(tmpDir, "allure-results", "flow-000-result.json"))
 	var result AllureResult
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
 
 	// Flow-level attachments
 	if len(result.Attachments) != 2 {
@@ -426,12 +442,18 @@ func TestAllureCopyAttachments(t *testing.T) {
 	tmpDir := t.TempDir()
 	reportDir := filepath.Join(tmpDir, "report")
 	allureDir := filepath.Join(tmpDir, "allure-results")
-	os.MkdirAll(allureDir, 0o755)
+	if err := os.MkdirAll(allureDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 
 	// Create fake screenshot
 	assetsDir := filepath.Join(reportDir, "assets", "flow-000")
-	os.MkdirAll(assetsDir, 0o755)
-	os.WriteFile(filepath.Join(assetsDir, "cmd-000-after.png"), []byte("image-data"), 0o644)
+	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetsDir, "cmd-000-after.png"), []byte("image-data"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	flows := []FlowDetail{
 		{ID: "flow-000", Commands: []Command{
@@ -630,7 +652,9 @@ func TestAllureLabels(t *testing.T) {
 
 	data, _ := os.ReadFile(filepath.Join(tmpDir, "allure-results", "flow-000-result.json"))
 	var result AllureResult
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
 
 	labelMap := map[string][]string{}
 	for _, l := range result.Labels {
@@ -776,7 +800,9 @@ func TestCopyFileSourceMissing(t *testing.T) {
 func TestCopyFileDestUnwritable(t *testing.T) {
 	tmpDir := t.TempDir()
 	src := filepath.Join(tmpDir, "src.png")
-	os.WriteFile(src, []byte("data"), 0o644)
+	if err := os.WriteFile(src, []byte("data"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	// Point dst to a path inside a non-existent directory
 	dst := filepath.Join(tmpDir, "nodir", "subdir", "out.png")
@@ -811,7 +837,9 @@ func TestGenerateAllureUnwritableDir(t *testing.T) {
 	// Make the report dir read-only so allure-results can't be created
 	allureDir := filepath.Join(tmpDir, "allure-results")
 	// Create a file where the directory should be, so MkdirAll fails
-	os.WriteFile(allureDir, []byte("block"), 0o444)
+	if err := os.WriteFile(allureDir, []byte("block"), 0o444); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	err := GenerateAllure(tmpDir)
 	if err == nil {
@@ -848,13 +876,21 @@ func TestAllureCopyAttachmentsWithSubcommands(t *testing.T) {
 	tmpDir := t.TempDir()
 	reportDir := filepath.Join(tmpDir, "report")
 	allureDir := filepath.Join(tmpDir, "allure-results")
-	os.MkdirAll(allureDir, 0o755)
+	if err := os.MkdirAll(allureDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 
 	// Create screenshots in nested paths
 	assetsDir := filepath.Join(reportDir, "assets", "flow-000")
-	os.MkdirAll(assetsDir, 0o755)
-	os.WriteFile(filepath.Join(assetsDir, "cmd-000-before.png"), []byte("before"), 0o644)
-	os.WriteFile(filepath.Join(assetsDir, "sub-000-after.png"), []byte("sub-after"), 0o644)
+	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetsDir, "cmd-000-before.png"), []byte("before"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetsDir, "sub-000-after.png"), []byte("sub-after"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	flows := []FlowDetail{
 		{ID: "flow-000", Commands: []Command{
@@ -881,11 +917,18 @@ func TestAllureCopyAttachmentsWithSubcommands(t *testing.T) {
 
 func TestWriteAllureCategoriesUnwritable(t *testing.T) {
 	tmpDir := t.TempDir()
-	// Create a read-only directory
 	roDir := filepath.Join(tmpDir, "readonly")
-	os.MkdirAll(roDir, 0o755)
-	os.Chmod(roDir, 0o444)
-	defer os.Chmod(roDir, 0o755)
+	if err := os.MkdirAll(roDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.Chmod(roDir, 0o444); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	defer func() {
+		if err := os.Chmod(roDir, 0o755); err != nil {
+			t.Logf("cleanup Chmod: %v", err)
+		}
+	}()
 
 	err := writeAllureCategories(roDir)
 	if err == nil {
@@ -896,9 +939,17 @@ func TestWriteAllureCategoriesUnwritable(t *testing.T) {
 func TestWriteAllureExecutorUnwritable(t *testing.T) {
 	tmpDir := t.TempDir()
 	roDir := filepath.Join(tmpDir, "readonly")
-	os.MkdirAll(roDir, 0o755)
-	os.Chmod(roDir, 0o444)
-	defer os.Chmod(roDir, 0o755)
+	if err := os.MkdirAll(roDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.Chmod(roDir, 0o444); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	defer func() {
+		if err := os.Chmod(roDir, 0o755); err != nil {
+			t.Logf("cleanup Chmod: %v", err)
+		}
+	}()
 
 	err := writeAllureExecutor(roDir)
 	if err == nil {
@@ -909,9 +960,17 @@ func TestWriteAllureExecutorUnwritable(t *testing.T) {
 func TestWriteAllureEnvironmentUnwritable(t *testing.T) {
 	tmpDir := t.TempDir()
 	roDir := filepath.Join(tmpDir, "readonly")
-	os.MkdirAll(roDir, 0o755)
-	os.Chmod(roDir, 0o444)
-	defer os.Chmod(roDir, 0o755)
+	if err := os.MkdirAll(roDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.Chmod(roDir, 0o444); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	defer func() {
+		if err := os.Chmod(roDir, 0o755); err != nil {
+			t.Logf("cleanup Chmod: %v", err)
+		}
+	}()
 
 	index := &Index{Device: Device{Name: "Test"}}
 	err := writeAllureEnvironment(roDir, index)
@@ -941,9 +1000,17 @@ func TestGenerateAllureResultWriteError(t *testing.T) {
 
 	// Create allure-results as a read-only dir so writing result files fails
 	allureDir := filepath.Join(tmpDir, "allure-results")
-	os.MkdirAll(allureDir, 0o755)
-	os.Chmod(allureDir, 0o444)
-	defer os.Chmod(allureDir, 0o755)
+	if err := os.MkdirAll(allureDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.Chmod(allureDir, 0o444); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	defer func() {
+		if err := os.Chmod(allureDir, 0o755); err != nil {
+			t.Logf("cleanup Chmod: %v", err)
+		}
+	}()
 
 	err := GenerateAllure(tmpDir)
 	if err == nil {
@@ -983,7 +1050,9 @@ func TestAllurePerFlowDevice(t *testing.T) {
 
 	data, _ := os.ReadFile(filepath.Join(tmpDir, "allure-results", "flow-000-result.json"))
 	var result AllureResult
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
 
 	labelMap := map[string]string{}
 	for _, l := range result.Labels {
