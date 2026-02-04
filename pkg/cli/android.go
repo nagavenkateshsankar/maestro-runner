@@ -14,8 +14,9 @@ import (
 	"github.com/devicelab-dev/maestro-runner/pkg/uiautomator2"
 )
 
-// createAndroidDriver creates an Android driver based on cfg.Driver type.
-func createAndroidDriver(cfg *RunConfig) (core.Driver, func(), error) {
+// CreateAndroidDriver creates an Android driver based on cfg.Driver type.
+// Exported for library use.
+func CreateAndroidDriver(cfg *RunConfig) (core.Driver, func(), error) {
 	driverType := strings.ToLower(cfg.Driver)
 	if driverType == "" {
 		driverType = "uiautomator2"

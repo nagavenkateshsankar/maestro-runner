@@ -1001,7 +1001,7 @@ func executeFlowsWithMode(cfg *RunConfig, flows []flow.Flow, needsParallel bool,
 // executeSingleDevice runs flows on a single device.
 func executeSingleDevice(cfg *RunConfig, flows []flow.Flow) (*executor.RunResult, error) {
 	logger.Info("Creating driver for single device execution")
-	driver, cleanup, err := createDriver(cfg)
+	driver, cleanup, err := CreateDriver(cfg)
 	if err != nil {
 		logger.Error("Failed to create driver: %v", err)
 		// Surface NoDevicesError directly so the helpful message isn't buried
@@ -1037,6 +1037,45 @@ func executeSingleDevice(cfg *RunConfig, flows []flow.Flow) (*executor.RunResult
 	})
 
 	return runner.Run(context.Background(), flows)
+}
+
+// ExecuteFlowWithDriver runs a single flow using an existing driver.
+// Use this for library usage when you want to reuse the same session across multiple flows.
+// Provides full output: console progress, JSON report, and screenshots on failure.
+//
+// Example usage:
+//
+//	driver, cleanup, _ := cli.CreateDriver(cfg)
+//	defer cleanup()
+//
+//	for flowPath := range getFlows() {
+//	    f, _ := flow.ParseFile(flowPath)
+//	    cfg.OutputDir = "./reports/" + f.Name
+//	    result, _ := cli.ExecuteFlowWithDriver(driver, cfg, *f)
+//	}
+func ExecuteFlowWithDriver(driver core.Driver, cfg *RunConfig, f flow.Flow) (*executor.RunResult, error) {
+	driverName := resolveDriverName(cfg, cfg.Platform)
+	deviceInfo := buildDeviceReport(driver)
+
+	runner := executor.New(driver, executor.RunnerConfig{
+		OutputDir:          cfg.OutputDir,
+		Parallelism:        0,
+		Artifacts:          executor.ArtifactOnFailure,
+		Device:             deviceInfo,
+		App:                buildAppReport(driver),
+		RunnerVersion:      Version,
+		DriverName:         driverName,
+		Env:                cfg.Env,
+		WaitForIdleTimeout: cfg.WaitForIdleTimeout,
+		DeviceInfo:         &deviceInfo,
+		OnFlowStart:        onFlowStart,
+		OnStepComplete:     onStepComplete,
+		OnNestedStep:       onNestedStep,
+		OnNestedFlowStart:  onNestedFlowStart,
+		OnFlowEnd:          onFlowEnd,
+	})
+
+	return runner.Run(context.Background(), []flow.Flow{f})
 }
 
 // ANSI color codes
@@ -1302,9 +1341,10 @@ func executeAppiumSingleSession(cfg *RunConfig, flows []flow.Flow) (*executor.Ru
 	return runner.Run(context.Background(), flows)
 }
 
-// createDriver creates the appropriate driver for the platform.
+// CreateDriver creates the appropriate driver for the platform.
 // Returns the driver, a cleanup function, and any error.
-func createDriver(cfg *RunConfig) (core.Driver, func(), error) {
+// Exported for library use - call once, reuse across multiple flows.
+func CreateDriver(cfg *RunConfig) (core.Driver, func(), error) {
 	platform := strings.ToLower(cfg.Platform)
 	driverType := strings.ToLower(cfg.Driver)
 
@@ -1319,9 +1359,9 @@ func createDriver(cfg *RunConfig) (core.Driver, func(), error) {
 
 	switch platform {
 	case "android", "":
-		return createAndroidDriver(cfg)
+		return CreateAndroidDriver(cfg)
 	case "ios":
-		return createIOSDriver(cfg)
+		return CreateIOSDriver(cfg)
 	default:
 		return nil, nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
@@ -1745,10 +1785,10 @@ func createDeviceWorkers(cfg *RunConfig, deviceIDs []string, platform string) ([
 
 		if platform == "ios" {
 			deviceCfg.Platform = "ios"
-			driver, cleanup, err = createIOSDriver(&deviceCfg)
+			driver, cleanup, err = CreateIOSDriver(&deviceCfg)
 		} else {
 			deviceCfg.Platform = "android"
-			driver, cleanup, err = createAndroidDriver(&deviceCfg)
+			driver, cleanup, err = CreateAndroidDriver(&deviceCfg)
 		}
 
 		if err != nil {

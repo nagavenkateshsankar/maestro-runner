@@ -29,8 +29,9 @@ type iosDeviceInfo struct {
 	IsSimulator bool
 }
 
-// createIOSDriver creates an iOS driver using WebDriverAgent.
-func createIOSDriver(cfg *RunConfig) (core.Driver, func(), error) {
+// CreateIOSDriver creates an iOS driver using WebDriverAgent.
+// Exported for library use.
+func CreateIOSDriver(cfg *RunConfig) (core.Driver, func(), error) {
 	udid := getFirstDevice(cfg)
 
 	if udid == "" {

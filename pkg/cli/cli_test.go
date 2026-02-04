@@ -1611,3 +1611,269 @@ func TestOnFlowEnd_PassedAndFailed(t *testing.T) {
 	onFlowEnd("Login Flow", true, 2000, "")
 	onFlowEnd("Checkout Flow", false, 5000, "step failed")
 }
+
+// ============================================================
+// Tests for exported library functions
+// ============================================================
+
+// TestCreateDriver_Mock tests CreateDriver with mock platform
+func TestCreateDriver_Mock(t *testing.T) {
+	cfg := &RunConfig{
+		Platform: "mock",
+		Devices:  []string{"mock-device"},
+	}
+
+	driver, cleanup, err := CreateDriver(cfg)
+	if err != nil {
+		t.Fatalf("CreateDriver failed: %v", err)
+	}
+	defer cleanup()
+
+	if driver == nil {
+		t.Fatal("expected driver to be non-nil")
+	}
+
+	info := driver.GetPlatformInfo()
+	if info == nil {
+		t.Fatal("expected platform info to be non-nil")
+	}
+}
+
+// TestCreateDriver_MockAutoDetect tests CreateDriver with mock platform and no device specified
+func TestCreateDriver_MockAutoDetect(t *testing.T) {
+	cfg := &RunConfig{
+		Platform: "mock",
+		Devices:  nil, // Auto-detect
+	}
+
+	driver, cleanup, err := CreateDriver(cfg)
+	if err != nil {
+		t.Fatalf("CreateDriver failed: %v", err)
+	}
+	defer cleanup()
+
+	if driver == nil {
+		t.Fatal("expected driver to be non-nil")
+	}
+}
+
+// TestCreateDriver_UnsupportedPlatform tests CreateDriver with unsupported platform
+func TestCreateDriver_UnsupportedPlatform(t *testing.T) {
+	cfg := &RunConfig{
+		Platform: "unsupported",
+	}
+
+	_, _, err := CreateDriver(cfg)
+	if err == nil {
+		t.Fatal("expected error for unsupported platform")
+	}
+	if !strings.Contains(err.Error(), "unsupported platform") {
+		t.Errorf("expected 'unsupported platform' error, got: %v", err)
+	}
+}
+
+// TestExecuteFlowWithDriver_Mock tests ExecuteFlowWithDriver with mock driver
+func TestExecuteFlowWithDriver_Mock(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a test flow file
+	flowFile := dir + "/test_flow.yaml"
+	flowContent := `- tapOn: "Button"`
+	if err := os.WriteFile(flowFile, []byte(flowContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	// Create driver
+	cfg := &RunConfig{
+		Platform:  "mock",
+		Devices:   []string{"mock-device"},
+		OutputDir: dir + "/reports",
+	}
+
+	driver, cleanup, err := CreateDriver(cfg)
+	if err != nil {
+		t.Fatalf("CreateDriver failed: %v", err)
+	}
+	defer cleanup()
+
+	// Parse flow
+	f, err := flow.ParseFile(flowFile)
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+
+	// Execute flow
+	result, err := ExecuteFlowWithDriver(driver, cfg, *f)
+	if err != nil {
+		t.Fatalf("ExecuteFlowWithDriver failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("expected result to be non-nil")
+	}
+	if result.TotalFlows != 1 {
+		t.Errorf("expected TotalFlows=1, got %d", result.TotalFlows)
+	}
+	if len(result.FlowResults) != 1 {
+		t.Errorf("expected 1 FlowResult, got %d", len(result.FlowResults))
+	}
+}
+
+// TestExecuteFlowWithDriver_MultipleFlows tests running multiple flows with same driver
+func TestExecuteFlowWithDriver_MultipleFlows(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test flow files
+	flow1 := dir + "/flow1.yaml"
+	flow2 := dir + "/flow2.yaml"
+	if err := os.WriteFile(flow1, []byte(`- tapOn: "Button1"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(flow2, []byte(`- tapOn: "Button2"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	// Create driver ONCE
+	cfg := &RunConfig{
+		Platform:  "mock",
+		Devices:   []string{"mock-device"},
+		OutputDir: dir + "/reports",
+	}
+
+	driver, cleanup, err := CreateDriver(cfg)
+	if err != nil {
+		t.Fatalf("CreateDriver failed: %v", err)
+	}
+	defer cleanup()
+
+	// Run first flow
+	f1, _ := flow.ParseFile(flow1)
+	cfg.OutputDir = dir + "/reports/flow1"
+	result1, err := ExecuteFlowWithDriver(driver, cfg, *f1)
+	if err != nil {
+		t.Fatalf("ExecuteFlowWithDriver flow1 failed: %v", err)
+	}
+	if result1.TotalFlows != 1 {
+		t.Errorf("flow1: expected TotalFlows=1, got %d", result1.TotalFlows)
+	}
+
+	// Run second flow with SAME driver (session reuse)
+	f2, _ := flow.ParseFile(flow2)
+	cfg.OutputDir = dir + "/reports/flow2"
+	result2, err := ExecuteFlowWithDriver(driver, cfg, *f2)
+	if err != nil {
+		t.Fatalf("ExecuteFlowWithDriver flow2 failed: %v", err)
+	}
+	if result2.TotalFlows != 1 {
+		t.Errorf("flow2: expected TotalFlows=1, got %d", result2.TotalFlows)
+	}
+}
+
+// TestExecuteFlowWithDriver_OutputPath tests that output goes to correct path
+func TestExecuteFlowWithDriver_OutputPath(t *testing.T) {
+	dir := t.TempDir()
+
+	flowFile := dir + "/test_flow.yaml"
+	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		Platform:  "mock",
+		Devices:   []string{"mock-device"},
+		OutputDir: dir + "/custom_reports",
+	}
+
+	driver, cleanup, err := CreateDriver(cfg)
+	if err != nil {
+		t.Fatalf("CreateDriver failed: %v", err)
+	}
+	defer cleanup()
+
+	f, _ := flow.ParseFile(flowFile)
+	_, err = ExecuteFlowWithDriver(driver, cfg, *f)
+	if err != nil {
+		t.Fatalf("ExecuteFlowWithDriver failed: %v", err)
+	}
+
+	// Check that report.json was created in the output directory
+	reportPath := dir + "/custom_reports/report.json"
+	if _, err := os.Stat(reportPath); os.IsNotExist(err) {
+		t.Errorf("expected report.json at %s", reportPath)
+	}
+}
+
+// TestExecuteFlowWithDriver_WithEnv tests environment variables are passed
+func TestExecuteFlowWithDriver_WithEnv(t *testing.T) {
+	dir := t.TempDir()
+
+	flowFile := dir + "/test_flow.yaml"
+	if err := os.WriteFile(flowFile, []byte(`- tapOn: "Button"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Suppress stdout
+	oldStdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	defer func() { os.Stdout = oldStdout }()
+
+	cfg := &RunConfig{
+		Platform:  "mock",
+		Devices:   []string{"mock-device"},
+		OutputDir: dir + "/reports",
+		Env: map[string]string{
+			"TEST_USER": "testuser",
+			"TEST_PASS": "testpass",
+		},
+	}
+
+	driver, cleanup, err := CreateDriver(cfg)
+	if err != nil {
+		t.Fatalf("CreateDriver failed: %v", err)
+	}
+	defer cleanup()
+
+	f, _ := flow.ParseFile(flowFile)
+	result, err := ExecuteFlowWithDriver(driver, cfg, *f)
+	if err != nil {
+		t.Fatalf("ExecuteFlowWithDriver failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("expected result to be non-nil")
+	}
+}
+
+// TestCreateDriver_WithDeviceID tests CreateDriver with specific device ID
+func TestCreateDriver_WithDeviceID(t *testing.T) {
+	cfg := &RunConfig{
+		Platform: "mock",
+		Devices:  []string{"specific-device-id"},
+	}
+
+	driver, cleanup, err := CreateDriver(cfg)
+	if err != nil {
+		t.Fatalf("CreateDriver failed: %v", err)
+	}
+	defer cleanup()
+
+	info := driver.GetPlatformInfo()
+	if info.DeviceID != "specific-device-id" {
+		t.Errorf("expected DeviceID='specific-device-id', got %q", info.DeviceID)
+	}
+}
