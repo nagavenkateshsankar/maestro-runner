@@ -26,7 +26,7 @@ type Config struct {
 	Device   string `yaml:"device"`   // Target device
 
 	// Driver settings
-	WaitForIdleTimeout int `yaml:"waitForIdleTimeout"` // Wait for device idle in ms (0 = disabled, default 5000)
+	WaitForIdleTimeout int `yaml:"waitForIdleTimeout"` // Wait for device idle in ms (0 = disabled, default 200)
 }
 
 // Load loads configuration from a file.

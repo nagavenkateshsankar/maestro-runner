@@ -117,8 +117,8 @@ Examples:
 		// Driver settings
 		&cli.IntFlag{
 			Name:    "wait-for-idle-timeout",
-			Usage:   "Wait for device idle in ms (0 = disabled, default 5000)",
-			Value:   5000,
+			Usage:   "Wait for device idle in ms (0 = disabled, default 200)",
+			Value:   200,
 			EnvVars: []string{"MAESTRO_WAIT_FOR_IDLE_TIMEOUT"},
 		},
 
@@ -419,7 +419,7 @@ type RunConfig struct {
 	Capabilities map[string]interface{} // Parsed Appium capabilities
 
 	// Driver settings
-	WaitForIdleTimeout int    // Wait for device idle in ms (0 = disabled, default 5000)
+	WaitForIdleTimeout int    // Wait for device idle in ms (0 = disabled, default 200)
 	TeamID             string // Apple Development Team ID for WDA code signing
 
 	// Emulator/Simulator management
@@ -611,7 +611,7 @@ func runTest(c *cli.Context) error {
 			} else if val, ok := caps["waitForIdleTimeout"].(float64); ok {
 				cfg.WaitForIdleTimeout = int(val)
 			}
-			// else: keep default 5000ms from CLI flag
+			// else: keep default 200ms from CLI flag
 		}
 	}
 
